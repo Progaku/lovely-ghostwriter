@@ -181,7 +181,7 @@ export type ProphecyResult = {
 
 `templateId`、`candidateId`、`lineKey`、`selectedTerms` は画面表示必須ではない。AI用プロンプトに含める `interpretationAxis` を、実際に選ばれた4行と語彙から組み立てるために保持する。
 
-`interpretationAxis` は、固定の文体名ではなく、4週分の `line`、各週のテンプレート、候補 ID、差し込まれた語彙、週ごとの助言ニュアンスを要約した文字列にする。
+`interpretationAxis` は、固定の分類名ではなく、4週分の `line`、各週のテンプレート、候補 ID、差し込まれた語彙、週ごとの助言ニュアンスを要約した文字列にする。
 
 ### 4.3 バリデーションエラー
 
@@ -431,15 +431,15 @@ export function createSeededRandom(seed: string, randomSalt: string): () => numb
 - 常に4週分を返す。
 - `weekNumber` は1から4まで順に設定する。
 - 各週の `line` は必ず1つの文字列にする。
-- 第1週の本文は、選択された文体の `line1` 候補から選ぶ。
-- 第2週から第4週の本文は、直前に選ばれた候補の `nextCandidates` から選ぶ。
+- 第1週の本文は、`line1` 候補から選ぶ。
+- 第2週から第4週の本文は、直前に選ばれた候補の `nextCandidates` から貪欲に選ぶ。
 - 第1週から第4週までの組み合わせは固定しないが、各行を完全に独立したランダム選択にはしない。
 - 各週には、選ばれたテンプレートID、候補ID、行番号、差し込んだ語彙、助言ニュアンスをメタ情報として保持する。
 - 各週の `line` は日本語文字列にする。
 - 空行は生成しない。
 - 危害、病気、死、犯罪、金銭損失を断定的に予告する語句は使わない。
 
-### 8.3 文体
+### 8.3 文章トーン
 
 象徴的、不穏、暗示的な雰囲気にする。ただし、現実の被害や重大な不幸を断定しない。
 
@@ -472,7 +472,7 @@ export function createSeededRandom(seed: string, randomSalt: string): () => numb
 
 以下のような週番号別テンプレート候補から、入力値由来のシードと生成操作ごとのランダム値で初期化した疑似乱数を使って選択する。
 
-固定の4週セットを1つ選ぶのではなく、選択された文体に属するテンプレート候補から第1週の候補を選び、その候補が持つ `nextCandidates` をたどって第2週以降を選ぶ。第1週は T01 の `line1`、第2週は T10 の `line2` のように同じ月の中でテンプレートを混ぜられるが、第2週以降は直前の行候補が指定する自然な候補群から選ぶ。
+固定の4週セットを1つ選ぶのではなく、`line1` の行候補から第1週の候補を選び、その候補が持つ `nextCandidates` をたどって第2週以降を貪欲に選ぶ。第1週は T01 の `line1`、第2週は T10 の `line2` のように同じ月の中でテンプレートを混ぜられるが、第2週以降は直前の行候補が指定する自然な候補群から選ぶ。
 
 ```ts
 type TemplateLineKey = "line1" | "line2" | "line3" | "line4";
@@ -485,14 +485,16 @@ type TemplateLineCandidateRef = {
 
 type TemplateLineCandidate = {
   candidateId: string;
+  templateId: string;
+  lineKey: TemplateLineKey;
   text: string;
   profileId: string;
+  interpretationMetaId: string;
   nextCandidates?: TemplateLineCandidateRef[];
 };
 
 type LineTemplateSet = {
   templateId: string;
-  styleId: StyleId;
   // line1からline4は、第1週から第4週に対応する候補。
   line1: TemplateLineCandidate[];
   line2: TemplateLineCandidate[];
@@ -502,23 +504,28 @@ type LineTemplateSet = {
 
 const paperLineTemplates: LineTemplateSet = {
   templateId: "T01",
-  styleId: "S01",
   line1: [
     {
       candidateId: "T01-L1-A",
+      templateId: "T01",
+      lineKey: "line1",
       text: "{name}の名を薄いインクが覚え、{theme}の余白に小さな{symbol}が残る",
       profileId: "VP01",
+      interpretationMetaId: "IM-L1-ENTRY",
       nextCandidates: [
         { templateId: "T01", lineKey: "line2", candidateId: "T01-L2-A" },
-        { templateId: "T10", lineKey: "line2", candidateId: "T10-L2-B" },
+        { templateId: "T10", lineKey: "line2", candidateId: "T10-L2-A" },
       ],
     },
   ],
   line2: [
     {
       candidateId: "T01-L2-A",
+      templateId: "T01",
+      lineKey: "line2",
       text: "{theme}へ向かう行間に小さな{object}が挟まれ、{name}は順番を{action}",
       profileId: "VP01",
+      interpretationMetaId: "IM-L2-CONDITION",
       nextCandidates: [
         { templateId: "T01", lineKey: "line3", candidateId: "T01-L3-A" },
       ],
@@ -527,8 +534,11 @@ const paperLineTemplates: LineTemplateSet = {
   line3: [
     {
       candidateId: "T01-L3-A",
+      templateId: "T01",
+      lineKey: "line3",
       text: "{mood}の気配は古い活字の間で滲み、{theme}の読み方を少し変える",
       profileId: "VP17",
+      interpretationMetaId: "IM-L3-REFRAME",
       nextCandidates: [
         { templateId: "T01", lineKey: "line4", candidateId: "T01-L4-A" },
       ],
@@ -537,8 +547,11 @@ const paperLineTemplates: LineTemplateSet = {
   line4: [
     {
       candidateId: "T01-L4-A",
+      templateId: "T01",
+      lineKey: "line4",
       text: "最後の罫線を越える前に、{name}は手元の言葉を{action}とよい",
       profileId: "VP01",
+      interpretationMetaId: "IM-L4-ACTION",
     },
   ],
 };
@@ -552,13 +565,12 @@ const paperLineTemplates: LineTemplateSet = {
 
 入力内容に応じて表現を変えるため、以下のいずれかをシード付き疑似乱数で選択する。
 
-- 文体選択
 - 週番号別テンプレート選択
 - 象徴語の選択
 - 場所語の選択
 - 道具語の選択
 - 穏当な行動語の選択
-- 文体ごとのニュアンス
+- 行候補ごとのニュアンス
 - 行末表現
 - 週ごとの助言ニュアンス
 
@@ -617,7 +629,7 @@ const rng = createSeededRandom(seed, randomSalt);
 
 ### 8.7 四行詩の解釈軸生成
 
-`buildInterpretationAxis` は、固定の文体名や文体IDだけを返さない。実際に生成された4週分の詩と、生成時に保持したメタ情報から、AIが四行詩を読み替えるための観点を作る。
+`buildInterpretationAxis` は、固定の分類名や分類IDだけを返さない。実際に生成された4週分の詩と、生成時に保持したメタ情報から、AIが四行詩を読み替えるための観点を作る。
 
 参照する情報:
 
@@ -646,7 +658,7 @@ const rng = createSeededRandom(seed, randomSalt);
 - 週番号の対応を守り、第1週から第4週までの流れとして要約する。
 - ユーザーの未来、相手の気持ち、成功失敗を断定する観点にしない。
 - 医療、法律、金融など専門判断を代替する観点にしない。
-- 文体名はAI用プロンプトに含めない。
+- 固定の分類名はAI用プロンプトに含めない。
 
 ## 9. AI用プロンプト生成仕様
 
