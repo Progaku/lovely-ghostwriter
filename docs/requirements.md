@@ -151,11 +151,14 @@ type ProphecyWeek = {
 
 type ProphecyResult = {
   weeks: ProphecyWeek[];
+  interpretationAxis: string;
   aiPrompt: string;
 };
 ```
 
 4週分の予言生成では、固定の4週セットだけを選ぶのではなく、第1週から第4週までを週番号別の候補から個別に選び、組み合わせて `weeks` を作る。
+
+`interpretationAxis` は、固定の文体名ではなく、実際に選ばれた4行、各行のテンプレート候補、差し込まれた象徴語・道具語・行動語、週ごとの助言ニュアンスをもとに組み立てる。
 
 ## 7. 画面要件
 

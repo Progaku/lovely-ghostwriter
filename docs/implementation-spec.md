@@ -150,10 +150,20 @@ export type ProphecyInput = {
 export type ProphecyWeek = {
   weekNumber: 1 | 2 | 3 | 4;
   line: string;
+  templateId: string;
+  selectedTerms: {
+    symbol?: string;
+    place?: string;
+    object?: string;
+    action?: string;
+    toneHint?: string;
+    adviceNuance?: string;
+  };
 };
 
 export type ProphecyResult = {
   weeks: ProphecyWeek[];
+  interpretationAxis: string;
   aiPrompt: string;
   seed: string;
   randomSalt: string;
@@ -166,6 +176,10 @@ export type ProphecyResult = {
 `randomSalt` は、生成操作ごとに作るランダムな文字列を保持する。同じ入力でも再生成で表現を変えるため、最終的な疑似乱数の初期化には `seed` と `randomSalt` の両方を使う。
 
 `generatedAt` は画面表示必須ではないが、結果生成のタイミングを確認できるよう保持する。予言本文とAI用プロンプトの内容は `generatedAt` に依存させない。
+
+`templateId`、`selectedTerms` は画面表示必須ではない。AI用プロンプトに含める `interpretationAxis` を、実際に選ばれた4行と語彙から組み立てるために保持する。
+
+`interpretationAxis` は、固定の文体名ではなく、4週分の `line`、各週のテンプレート、差し込まれた語彙、週ごとの助言ニュアンスを要約した文字列にする。
 
 ### 4.3 バリデーションエラー
 
@@ -337,10 +351,11 @@ const isFormValid = Object.keys(currentErrors).length === 0;
 1. 念のため入力値を再バリデーションする。
 2. エラーがあれば `errors` を更新し、`result` は変更しない。
 3. エラーがなければ予言を生成する。
-4. 生成した予言からAI用プロンプトを生成する。
-5. `result` を更新する。
-6. `errors` を空にする。
-7. `copyStatus` を `idle` に戻す。
+4. 生成した4週分の詩とメタ情報から、四行詩の解釈軸を生成する。
+5. 生成した予言と四行詩の解釈軸からAI用プロンプトを生成する。
+6. `result` を更新する。
+7. `errors` を空にする。
+8. `copyStatus` を `idle` に戻す。
 
 #### 再生成ボタン押下
 
@@ -391,6 +406,12 @@ const isFormValid = Object.keys(currentErrors).length === 0;
 export function generateProphecy(input: ProphecyInput): ProphecyWeek[];
 ```
 
+四行詩の解釈軸生成関数:
+
+```ts
+export function buildInterpretationAxis(input: ProphecyInput, weeks: ProphecyWeek[]): string;
+```
+
 シード生成関数:
 
 ```ts
@@ -410,6 +431,7 @@ export function createSeededRandom(seed: string, randomSalt: string): () => numb
 - 各週の `line` は必ず1つの文字列にする。
 - 各週の本文は、選択された文体の週番号別テンプレート候補から個別に選ぶ。
 - 第1週から第4週までの組み合わせは固定せず、シード付き疑似乱数で再結合する。
+- 各週には、選ばれたテンプレートID、差し込んだ語彙、助言ニュアンスをメタ情報として保持する。
 - 各週の `line` は日本語文字列にする。
 - 空行は生成しない。
 - 危害、病気、死、犯罪、金銭損失を断定的に予告する語句は使わない。
@@ -489,8 +511,14 @@ const paperLineTemplates: LineTemplateSet = {
 - 文体選択
 - 週番号別テンプレート選択
 - 象徴語の選択
+- 場所語の選択
+- 道具語の選択
+- 穏当な行動語の選択
+- 文体ごとのニュアンス
 - 行末表現
 - 週ごとの助言ニュアンス
+
+選択した語彙とニュアンスは、詩本文へ差し込んだ後も `selectedTerms` に保持する。`interpretationAxis` は、この `selectedTerms` と4週分の `line` をもとに組み立てる。
 
 入力値由来のシードは、生成に使う入力値を正規化してから作る。
 
@@ -542,6 +570,39 @@ const rng = createSeededRandom(seed, randomSalt);
 - `birthDate` は予言本文に必ず含めなくてよい。
 - `gender` は未選択なら本文に含めなくてよい。
 - 入力値はHTMLとして描画せず、Reactの通常のテキスト描画に任せる。
+
+### 8.7 四行詩の解釈軸生成
+
+`buildInterpretationAxis` は、固定の文体名や文体IDだけを返さない。実際に生成された4週分の詩と、生成時に保持したメタ情報から、AIが四行詩を読み替えるための観点を作る。
+
+参照する情報:
+
+- 4週分の `line`
+- 各週の `templateId`
+- 各週の `selectedTerms.symbol`
+- 各週の `selectedTerms.place`
+- 各週の `selectedTerms.object`
+- 各週の `selectedTerms.action`
+- 各週の `selectedTerms.toneHint`
+- 各週の `selectedTerms.adviceNuance`
+- ユーザーの `theme`
+- ユーザーの `mood`
+
+出力は、4週の流れと相談テーマへの読み替え方が分かる短い日本語文にする。週ごとの観点と、1ヶ月全体の観点を含める。
+
+例:
+
+```text
+第1週は余白と小さな印から未整理の情報を見直す週、第2週は手元の道具と順番から進め方を整える週、第3週は気分の揺れから見方を変える週、第4週は選んだ行動語に沿って小さく締める週として読む。全体として、相談テーマを急いで結論づけず、今月の気分を手がかりに優先順位と次の一手を整える流れとして解釈する。
+```
+
+生成ルール:
+
+- 実際に選ばれていない語彙やニュアンスを解釈軸に含めない。
+- 週番号の対応を守り、第1週から第4週までの流れとして要約する。
+- ユーザーの未来、相手の気持ち、成功失敗を断定する観点にしない。
+- 医療、法律、金融など専門判断を代替する観点にしない。
+- 文体名はAI用プロンプトに含めない。
 
 ## 9. AI用プロンプト生成仕様
 
