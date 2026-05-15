@@ -46,9 +46,9 @@
 
 専用のスタイル分類IDは持たない。第1週の行候補を1つ選び、以降は直前の行候補が持つ `nextCandidates` から、次の週に使う行候補を貪欲に選ぶ。
 
-候補が複数ある場合は、入力値、語彙プロファイル、行ごとの解釈メタ情報、直前行との接続の自然さをスコア化し、最も高い候補を選ぶ。同点の場合のみ、入力値由来のシードと `randomSalt` で安定的にタイブレークする。
+候補が複数ある場合は、入力値、語彙プロファイル、行番号ごとの基本メタ情報、直前行との接続の自然さをスコア化し、最も高い候補を選ぶ。同点の場合のみ、入力値由来のシードと `randomSalt` で安定的にタイブレークする。
 
-`nextCandidates` が空、未定義、または参照先が見つからない場合は、現在の週番号に対応する行候補からフォールバックする。ただしフォールバックでも、直前行の `profileId`、`interpretationMetaId`、相談テーマに近い候補だけを対象にし、全候補から無制限に選ばない。
+`nextCandidates` が空、未定義、または参照先が見つからない場合は、現在の週番号に対応する行候補からフォールバックする。ただしフォールバックでも、直前行の `profileId`、行番号ごとの基本メタ情報、相談テーマに近い候補だけを対象にし、全候補から無制限に選ばない。
 
 ## 4. テンプレートバリエーション
 
@@ -65,24 +65,21 @@
 
 週番号は表示上の見出しで示し、詩本文には含めない。テンプレート本文にも `第1週`、`第{week}週` などの週番号表現は入れない。
 
-実装上の構造は以下を基本にする。候補は `lineKey` ごとに分けて保持し、`templateId` は行候補の系統を示すためだけに使う。
+実装上の構造は以下を基本にする。候補は `lineKey` ごとに分けて保持し、行候補の参照は `candidateId` で行う。
 
 ```ts
 type TemplateLineKey = "line1" | "line2" | "line3" | "line4";
 
 type TemplateLineCandidateRef = {
-  templateId: string;
   lineKey: TemplateLineKey;
   candidateId: string;
 };
 
 type TemplateLineCandidate = {
   candidateId: string;
-  templateId: string;
   lineKey: TemplateLineKey;
   text: string;
   profileId: string;
-  interpretationMetaId: string;
   nextCandidates?: TemplateLineCandidateRef[];
 };
 
@@ -96,11 +93,11 @@ type TemplateLineCatalog = {
 
 生成時は、第1週の候補を選んだあと、その候補が持つ `nextCandidates` から第2週の候補を貪欲に選ぶ。第2週、第3週も同じように、直前に選ばれた候補が次行候補を制約する。`nextCandidates` が空または未定義の場合のみ、現在の週番号に対応する行候補からフォールバック選択する。
 
-たとえば、第1週で T01 の `line1` 候補 `T01-L1-A` が選ばれた場合、その候補の `nextCandidates` に T10 の `line2` 候補 `T10-L2-A` や T17 の `line2` 候補 `T17-L2-A` を持たせる。第2週はその候補群から選ぶため、単純な全体ランダムではなく、前行から自然につながる行だけが次に来る。
+たとえば、第1週で `line1` 候補 `T01-L1-A` が選ばれた場合、その候補の `nextCandidates` に `line2` 候補 `T10-L2-A` や `T17-L2-A` を持たせる。第2週はその候補群から選ぶため、単純な全体ランダムではなく、前行から自然につながる行だけが次に来る。
 
-第1週は T01 の `line1`、第2週は T10 の `line2`、第3週は T04 の `line3`、第4週は T17 の `line4` のように組み合わせてよい。週番号と行番号の対応は固定し、T10 の `line1` を第2週に使うような入れ替えはしない。
+第1週は `T01-L1-A`、第2週は `T10-L2-A`、第3週は `T04-L3-A`、第4週は `T17-L4-A` のように組み合わせてよい。週番号と行番号の対応は固定し、`line1` の候補を第2週に使うような入れ替えはしない。
 
-月全体の統一感は、`nextCandidates` に自然につながる行候補だけを列挙し、候補選択時に直前行との接続を重く評価することで保つ。各週の `templateId` と `candidateId` は `ProphecyWeek` に保持する。
+月全体の統一感は、`nextCandidates` に自然につながる行候補だけを列挙し、候補選択時に直前行との接続を重く評価することで保つ。各週の `candidateId` は `ProphecyWeek` に保持する。
 
 ### 4.1 行遷移の例
 
@@ -111,54 +108,46 @@ const templateLineCatalog: TemplateLineCatalog = {
   line1: [
     {
       candidateId: "T01-L1-A",
-      templateId: "T01",
       lineKey: "line1",
       text: "{name}の名を薄いインクが覚え、{theme}の余白に小さな{symbol}が残る",
       profileId: "VP01",
-      interpretationMetaId: "IM-L1-ENTRY",
       nextCandidates: [
-        { templateId: "T01", lineKey: "line2", candidateId: "T01-L2-A" },
-        { templateId: "T10", lineKey: "line2", candidateId: "T10-L2-A" },
-        { templateId: "T17", lineKey: "line2", candidateId: "T17-L2-A" },
+        { lineKey: "line2", candidateId: "T01-L2-A" },
+        { lineKey: "line2", candidateId: "T10-L2-A" },
+        { lineKey: "line2", candidateId: "T17-L2-A" },
       ],
     },
   ],
   line2: [
     {
       candidateId: "T01-L2-A",
-      templateId: "T01",
       lineKey: "line2",
       text: "{theme}へ向かう行間に小さな{object}が挟まれ、{name}は順番を{action}",
       profileId: "VP01",
-      interpretationMetaId: "IM-L2-CONDITION",
       nextCandidates: [
-        { templateId: "T01", lineKey: "line3", candidateId: "T01-L3-A" },
-        { templateId: "T12", lineKey: "line3", candidateId: "T12-L3-A" },
+        { lineKey: "line3", candidateId: "T01-L3-A" },
+        { lineKey: "line3", candidateId: "T12-L3-A" },
       ],
     },
   ],
   line3: [
     {
       candidateId: "T01-L3-A",
-      templateId: "T01",
       lineKey: "line3",
       text: "{mood}の気配は古い活字の間で滲み、{theme}の読み方を少し変える",
       profileId: "VP17",
-      interpretationMetaId: "IM-L3-REFRAME",
       nextCandidates: [
-        { templateId: "T01", lineKey: "line4", candidateId: "T01-L4-A" },
-        { templateId: "T18", lineKey: "line4", candidateId: "T18-L4-A" },
+        { lineKey: "line4", candidateId: "T01-L4-A" },
+        { lineKey: "line4", candidateId: "T18-L4-A" },
       ],
     },
   ],
   line4: [
     {
       candidateId: "T01-L4-A",
-      templateId: "T01",
       lineKey: "line4",
       text: "最後の罫線を越える前に、{name}は手元の言葉を{action}とよい",
       profileId: "VP01",
-      interpretationMetaId: "IM-L4-ACTION",
     },
   ],
 };
@@ -168,155 +157,155 @@ const templateLineCatalog: TemplateLineCatalog = {
 
 ### 4.2 行候補カタログ
 
-行候補は、以下のように `lineKey` ごとに分けて登録する。`templateId` は行候補のまとまりを表す補助IDであり、同じ `templateId` の4行を必ずセットで使うという意味ではない。
+行候補は、以下のように `lineKey` ごとに分けて登録する。候補間の接続は、各候補の `nextCandidates` に `candidateId` を列挙して管理する。
 
 #### line1 / 第1週候補
 
-| candidateId | templateId | profileId | interpretationMetaId | text |
-| --- | --- | --- | --- | --- |
-| T01-L1-A | T01 古い占い紙面 | VP01 | IM-L1-ENTRY | {name}の名を、薄いインクがまだ覚えている |
-| T02-L1-A | T02 自動筆記 | VP02 | IM-L1-ENTRY | 手は止まらず、{name}のための行をなぞる |
-| T03-L1-A | T03 タイプライター | VP03 | IM-L1-ENTRY | {name}の紙面に短い音が落ちる |
-| T04-L1-A | T04 月明かり | VP04 | IM-L1-ENTRY | 窓の月が、{name}の横顔を白く縁取る |
-| T05-L1-A | T05 封筒 | VP05 | IM-L1-ENTRY | 宛名には、{name}の文字が少し斜めに眠る |
-| T06-L1-A | T06 鍵と扉 | VP06 | IM-L1-ENTRY | {name}の前で、古い鍵が小さく鳴る |
-| T07-L1-A | T07 机上の静物 | VP07 | IM-L1-ENTRY | 机の上で、{name}の紙片だけが裏返る |
-| T08-L1-A | T08 雨音 | VP08 | IM-L1-ENTRY | 雨粒が、{name}の窓に細い線を引く |
-| T09-L1-A | T09 迷路 | VP09 | IM-L1-ENTRY | {name}の足元に、消えかけた矢印がある |
-| T10-L1-A | T10 暦と針 | VP10 | IM-L1-ENTRY | 暦の端で、{name}の日付が静かにめくれる |
-| T11-L1-A | T11 影絵 | VP11 | IM-L1-ENTRY | 幕の向こうで、{name}の影が形を変える |
-| T12-L1-A | T12 古書 | VP12 | IM-L1-ENTRY | 古い頁に、{name}の名が栞のように挟まれる |
-| T13-L1-A | T13 窓辺 | VP13 | IM-L1-ENTRY | {name}の窓辺に、外から細い風が届く |
-| T14-L1-A | T14 小さな儀式 | VP14 | IM-L1-ENTRY | {name}は机の隅に、折れた紙をそっと置く |
-| T15-L1-A | T15 地図と方位 | VP15 | IM-L1-ENTRY | 地図の端に、{name}だけが知る小さな印がある |
-| T16-L1-A | T16 鏡面 | VP16 | IM-L1-ENTRY | 鏡の曇りに、{name}の文字が一瞬だけ浮かぶ |
-| T17-L1-A | T17 余白 | VP17 | IM-L1-ENTRY | {name}のための行には、まだ書かれない白さがある |
-| T18-L1-A | T18 灯火 | VP18 | IM-L1-ENTRY | 小さな灯りが、{name}の紙面に輪を作る |
-| T19-L1-A | T19 階段 | VP19 | IM-L1-ENTRY | {name}の前に、低い階段が四段だけ見える |
-| T20-L1-A | T20 古い写真 | VP20 | IM-L1-ENTRY | 古い写真の縁に、{name}の気配が淡く残る |
-| T21-L1-A | T21 水槽 | VP21 | IM-L1-ENTRY | 水面に、{name}の名が波紋となって広がる |
-| T22-L1-A | T22 糸と結び目 | VP22 | IM-L1-ENTRY | {name}の指先に、細い糸の端が触れる |
-| T23-L1-A | T23 鉱物 | VP23 | IM-L1-ENTRY | 暗い石の面に、{name}の名が鈍く光る |
-| T24-L1-A | T24 図書館 | VP24 | IM-L1-ENTRY | 書架の奥で、{name}の札が静かに揺れる |
-| T25-L1-A | T25 夕暮れ | VP25 | IM-L1-ENTRY | 夕暮れが、{name}の帰り道を長く伸ばす |
-| T26-L1-A | T26 朝霧 | VP26 | IM-L1-ENTRY | 朝霧の中で、{name}の道だけが薄く白い |
-| T27-L1-A | T27 劇場の幕 | VP27 | IM-L1-ENTRY | 幕の端で、{name}の出番を告げる灯りが揺れる |
-| T28-L1-A | T28 郵便局 | VP28 | IM-L1-ENTRY | 仕分け台に、{name}宛ての小さな封が置かれる |
-| T29-L1-A | T29 庭園 | VP29 | IM-L1-ENTRY | 庭の土に、{name}のための細い線が引かれる |
-| T30-L1-A | T30 裁縫箱 | VP30 | IM-L1-ENTRY | 裁縫箱の底で、{name}の糸だけがほどけている |
-| T31-L1-A | T31 砂時計 | VP31 | IM-L1-ENTRY | 砂時計の細いところで、{name}の時間が光る |
-| T32-L1-A | T32 古いラジオ | VP32 | IM-L1-ENTRY | 古いラジオが、{name}の名に似た雑音を拾う |
+| candidateId | profileId | text |
+| --- | --- | --- |
+| T01-L1-A | VP01 | {name}の名を、薄いインクがまだ覚えている |
+| T02-L1-A | VP02 | 手は止まらず、{name}のための行をなぞる |
+| T03-L1-A | VP03 | {name}の紙面に短い音が落ちる |
+| T04-L1-A | VP04 | 窓の月が、{name}の横顔を白く縁取る |
+| T05-L1-A | VP05 | 宛名には、{name}の文字が少し斜めに眠る |
+| T06-L1-A | VP06 | {name}の前で、古い鍵が小さく鳴る |
+| T07-L1-A | VP07 | 机の上で、{name}の紙片だけが裏返る |
+| T08-L1-A | VP08 | 雨粒が、{name}の窓に細い線を引く |
+| T09-L1-A | VP09 | {name}の足元に、消えかけた矢印がある |
+| T10-L1-A | VP10 | 暦の端で、{name}の日付が静かにめくれる |
+| T11-L1-A | VP11 | 幕の向こうで、{name}の影が形を変える |
+| T12-L1-A | VP12 | 古い頁に、{name}の名が栞のように挟まれる |
+| T13-L1-A | VP13 | {name}の窓辺に、外から細い風が届く |
+| T14-L1-A | VP14 | {name}は机の隅に、折れた紙をそっと置く |
+| T15-L1-A | VP15 | 地図の端に、{name}だけが知る小さな印がある |
+| T16-L1-A | VP16 | 鏡の曇りに、{name}の文字が一瞬だけ浮かぶ |
+| T17-L1-A | VP17 | {name}のための行には、まだ書かれない白さがある |
+| T18-L1-A | VP18 | 小さな灯りが、{name}の紙面に輪を作る |
+| T19-L1-A | VP19 | {name}の前に、低い階段が四段だけ見える |
+| T20-L1-A | VP20 | 古い写真の縁に、{name}の気配が淡く残る |
+| T21-L1-A | VP21 | 水面に、{name}の名が波紋となって広がる |
+| T22-L1-A | VP22 | {name}の指先に、細い糸の端が触れる |
+| T23-L1-A | VP23 | 暗い石の面に、{name}の名が鈍く光る |
+| T24-L1-A | VP24 | 書架の奥で、{name}の札が静かに揺れる |
+| T25-L1-A | VP25 | 夕暮れが、{name}の帰り道を長く伸ばす |
+| T26-L1-A | VP26 | 朝霧の中で、{name}の道だけが薄く白い |
+| T27-L1-A | VP27 | 幕の端で、{name}の出番を告げる灯りが揺れる |
+| T28-L1-A | VP28 | 仕分け台に、{name}宛ての小さな封が置かれる |
+| T29-L1-A | VP29 | 庭の土に、{name}のための細い線が引かれる |
+| T30-L1-A | VP30 | 裁縫箱の底で、{name}の糸だけがほどけている |
+| T31-L1-A | VP31 | 砂時計の細いところで、{name}の時間が光る |
+| T32-L1-A | VP32 | 古いラジオが、{name}の名に似た雑音を拾う |
 
 #### line2 / 第2週候補
 
-| candidateId | templateId | profileId | interpretationMetaId | text |
-| --- | --- | --- | --- | --- |
-| T01-L2-A | T01 古い占い紙面 | VP01 | IM-L2-CONDITION | {theme}の欄には、消えかけた{symbol}が残る |
-| T02-L2-A | T02 自動筆記 | VP01 | IM-L2-CONDITION | {theme}という語だけが、黒い点のそばで濃くなる |
-| T03-L2-A | T03 タイプライター | VP03 | IM-L2-CONDITION | {theme}は一度だけ行頭へ戻される |
-| T04-L2-A | T04 月明かり | VP11 | IM-L2-CONDITION | {theme}は影のなかで別の名前を持ちはじめる |
-| T05-L2-A | T05 封筒 | VP05 | IM-L2-CONDITION | {theme}の封は、まだ完全には閉じていない |
-| T06-L2-A | T06 鍵と扉 | VP06 | IM-L2-CONDITION | {theme}の扉は、押すより先に影を見せる |
-| T07-L2-A | T07 机上の静物 | VP07 | IM-L2-CONDITION | {theme}のそばに置かれた{object}は黙っている |
-| T08-L2-A | T08 雨音 | VP21 | IM-L2-CONDITION | {theme}は濡れた紙ほど破れやすく見える |
-| T09-L2-A | T09 迷路 | VP09 | IM-L2-CONDITION | {theme}の道は、曲がるたび同じ壁を見せる |
-| T10-L2-A | T10 暦と針 | VP31 | IM-L2-CONDITION | {theme}の針は、急ぐほど細かく震える |
-| T11-L2-A | T11 影絵 | VP16 | IM-L2-CONDITION | {theme}の輪郭は、近づくほど少しぼやける |
-| T12-L2-A | T12 古書 | VP12 | IM-L2-CONDITION | {theme}の章には、まだ題名のない余白がある |
-| T13-L2-A | T13 窓辺 | VP13 | IM-L2-CONDITION | {theme}は閉じた部屋で、別の景色を待っている |
-| T14-L2-A | T14 小さな儀式 | VP14 | IM-L2-CONDITION | {theme}の前には、まだ名のない手順がある |
-| T15-L2-A | T15 地図と方位 | VP15 | IM-L2-CONDITION | {theme}の北は、思った場所から少しずれている |
-| T16-L2-A | T16 鏡面 | VP16 | IM-L2-CONDITION | {theme}は映るたび、左右を入れ替えて見える |
-| T17-L2-A | T17 余白 | VP17 | IM-L2-CONDITION | {theme}は答えより先に、沈黙を置いていく |
-| T18-L2-A | T18 灯火 | VP18 | IM-L2-CONDITION | {theme}の影は、火が弱い時ほど長く伸びる |
-| T19-L2-A | T19 階段 | VP19 | IM-L2-CONDITION | {theme}は上ではなく、踊り場で形を変える |
-| T20-L2-A | T20 古い写真 | VP20 | IM-L2-CONDITION | {theme}は現像される前の像のように揺れている |
-| T21-L2-A | T21 水槽 | VP21 | IM-L2-CONDITION | {theme}は底ではなく、中ほどでゆっくり漂う |
-| T22-L2-A | T22 糸と結び目 | VP22 | IM-L2-CONDITION | {theme}の結び目は、強く引くほど固く見える |
-| T23-L2-A | T23 鉱物 | VP23 | IM-L2-CONDITION | {theme}の結晶は、急には形を変えない |
-| T24-L2-A | T24 図書館 | VP24 | IM-L2-CONDITION | {theme}の本は、まだ正しい棚を探している |
-| T25-L2-A | T25 夕暮れ | VP25 | IM-L2-CONDITION | {theme}は終わりではなく、色の変わる境目にある |
-| T26-L2-A | T26 朝霧 | VP26 | IM-L2-CONDITION | {theme}は見えないのではなく、近づく順を隠している |
-| T27-L2-A | T27 劇場の幕 | VP27 | IM-L2-CONDITION | {theme}の台詞は、まだ声の高さを探している |
-| T28-L2-A | T28 郵便局 | VP28 | IM-L2-CONDITION | {theme}の便りは、急がず行き先を確かめている |
-| T29-L2-A | T29 庭園 | VP29 | IM-L2-CONDITION | {theme}の種は、見えない場所で時を待っている |
-| T30-L2-A | T30 裁縫箱 | VP30 | IM-L2-CONDITION | {theme}の布目は、斜めから見ると整っている |
-| T31-L2-A | T31 砂時計 | VP31 | IM-L2-CONDITION | {theme}の粒は、一度に落ちず順番を守る |
-| T32-L2-A | T32 古いラジオ | VP32 | IM-L2-CONDITION | {theme}の周波数は、合わせるほど静けさを増す |
+| candidateId | profileId | text |
+| --- | --- | --- |
+| T01-L2-A | VP01 | {theme}の欄には、消えかけた{symbol}が残る |
+| T02-L2-A | VP01 | {theme}という語だけが、黒い点のそばで濃くなる |
+| T03-L2-A | VP03 | {theme}は一度だけ行頭へ戻される |
+| T04-L2-A | VP11 | {theme}は影のなかで別の名前を持ちはじめる |
+| T05-L2-A | VP05 | {theme}の封は、まだ完全には閉じていない |
+| T06-L2-A | VP06 | {theme}の扉は、押すより先に影を見せる |
+| T07-L2-A | VP07 | {theme}のそばに置かれた{object}は黙っている |
+| T08-L2-A | VP21 | {theme}は濡れた紙ほど破れやすく見える |
+| T09-L2-A | VP09 | {theme}の道は、曲がるたび同じ壁を見せる |
+| T10-L2-A | VP31 | {theme}の針は、急ぐほど細かく震える |
+| T11-L2-A | VP16 | {theme}の輪郭は、近づくほど少しぼやける |
+| T12-L2-A | VP12 | {theme}の章には、まだ題名のない余白がある |
+| T13-L2-A | VP13 | {theme}は閉じた部屋で、別の景色を待っている |
+| T14-L2-A | VP14 | {theme}の前には、まだ名のない手順がある |
+| T15-L2-A | VP15 | {theme}の北は、思った場所から少しずれている |
+| T16-L2-A | VP16 | {theme}は映るたび、左右を入れ替えて見える |
+| T17-L2-A | VP17 | {theme}は答えより先に、沈黙を置いていく |
+| T18-L2-A | VP18 | {theme}の影は、火が弱い時ほど長く伸びる |
+| T19-L2-A | VP19 | {theme}は上ではなく、踊り場で形を変える |
+| T20-L2-A | VP20 | {theme}は現像される前の像のように揺れている |
+| T21-L2-A | VP21 | {theme}は底ではなく、中ほどでゆっくり漂う |
+| T22-L2-A | VP22 | {theme}の結び目は、強く引くほど固く見える |
+| T23-L2-A | VP23 | {theme}の結晶は、急には形を変えない |
+| T24-L2-A | VP24 | {theme}の本は、まだ正しい棚を探している |
+| T25-L2-A | VP25 | {theme}は終わりではなく、色の変わる境目にある |
+| T26-L2-A | VP26 | {theme}は見えないのではなく、近づく順を隠している |
+| T27-L2-A | VP27 | {theme}の台詞は、まだ声の高さを探している |
+| T28-L2-A | VP28 | {theme}の便りは、急がず行き先を確かめている |
+| T29-L2-A | VP29 | {theme}の種は、見えない場所で時を待っている |
+| T30-L2-A | VP30 | {theme}の布目は、斜めから見ると整っている |
+| T31-L2-A | VP31 | {theme}の粒は、一度に落ちず順番を守る |
+| T32-L2-A | VP32 | {theme}の周波数は、合わせるほど静けさを増す |
 
 #### line3 / 第3週候補
 
-| candidateId | templateId | profileId | interpretationMetaId | text |
-| --- | --- | --- | --- | --- |
-| T01-L3-A | T01 古い占い紙面 | VP17 | IM-L3-REFRAME | {mood}の影は、紙の端で少しだけ向きを変える |
-| T02-L3-A | T02 自動筆記 | VP02 | IM-L3-REFRAME | {mood}は声にならず、{place}の奥で揺れている |
-| T03-L3-A | T03 タイプライター | VP10 | IM-L3-REFRAME | {mood}の文字は、強く打つほど少しにじむ |
-| T04-L3-A | T04 月明かり | VP04 | IM-L3-REFRAME | {mood}を抱えた夜ほど、{symbol}は静かに光る |
-| T05-L3-A | T05 封筒 | VP28 | IM-L3-REFRAME | {mood}の切手は、返事より先に色を変える |
-| T06-L3-A | T06 鍵と扉 | VP15 | IM-L3-REFRAME | {mood}の重さは、鍵穴の向きを教えている |
-| T07-L3-A | T07 机上の静物 | VP18 | IM-L3-REFRAME | {mood}はランプの輪の外で薄く伸びる |
-| T08-L3-A | T08 雨音 | VP08 | IM-L3-REFRAME | {mood}の雲は、動かないようで少し流れている |
-| T09-L3-A | T09 迷路 | VP18 | IM-L3-REFRAME | {mood}は迷いではなく、印を探す灯りになる |
-| T10-L3-A | T10 暦と針 | VP10 | IM-L3-REFRAME | {mood}は遅れではなく、間隔を測る合図になる |
-| T11-L3-A | T11 影絵 | VP11 | IM-L3-REFRAME | {mood}は影の濃さではなく、灯りの位置を示す |
-| T12-L3-A | T12 古書 | VP24 | IM-L3-REFRAME | {mood}は注釈となり、本文の意味を少し変える |
-| T13-L3-A | T13 窓辺 | VP04 | IM-L3-REFRAME | {mood}のカーテンは、半分だけ光を通す |
-| T14-L3-A | T14 小さな儀式 | VP07 | IM-L3-REFRAME | {mood}は乱れではなく、整える場所を知らせる |
-| T15-L3-A | T15 地図と方位 | VP26 | IM-L3-REFRAME | {mood}の風向きは、急な移動を求めていない |
-| T16-L3-A | T16 鏡面 | VP21 | IM-L3-REFRAME | {mood}の像は、近すぎるほど輪郭を失う |
-| T17-L3-A | T17 余白 | VP17 | IM-L3-REFRAME | {mood}の空白は、欠けではなく余地として残る |
-| T18-L3-A | T18 灯火 | VP18 | IM-L3-REFRAME | {mood}は消える合図ではなく、芯を整える知らせ |
-| T19-L3-A | T19 階段 | VP10 | IM-L3-REFRAME | {mood}の足音は、急ぐほど響きが乱れる |
-| T20-L3-A | T20 古い写真 | VP25 | IM-L3-REFRAME | {mood}の色は、時間を置くほど落ち着いて見える |
-| T21-L3-A | T21 水槽 | VP21 | IM-L3-REFRAME | {mood}の泡は、言葉になる前に上へ向かう |
-| T22-L3-A | T22 糸と結び目 | VP22 | IM-L3-REFRAME | {mood}は絡まりではなく、ほどく順番を示す |
-| T23-L3-A | T23 鉱物 | VP18 | IM-L3-REFRAME | {mood}のひびは、弱さではなく光の入口になる |
-| T24-L3-A | T24 図書館 | VP12 | IM-L3-REFRAME | {mood}の栞は、途中で止まる理由を教えている |
-| T25-L3-A | T25 夕暮れ | VP20 | IM-L3-REFRAME | {mood}の影は、振り返るほど形を整える |
-| T26-L3-A | T26 朝霧 | VP21 | IM-L3-REFRAME | {mood}の露は、手に取る前に形を変える |
-| T27-L3-A | T27 劇場の幕 | VP11 | IM-L3-REFRAME | {mood}の客席は、思うほど厳しく沈黙していない |
-| T28-L3-A | T28 郵便局 | VP05 | IM-L3-REFRAME | {mood}の切手は、言葉の重さに合わせて選ばれる |
-| T29-L3-A | T29 庭園 | VP26 | IM-L3-REFRAME | {mood}の枝は、伸びる前に向きを迷っている |
-| T30-L3-A | T30 裁縫箱 | VP22 | IM-L3-REFRAME | {mood}の待ち針は、留める場所を静かに示す |
-| T31-L3-A | T31 砂時計 | VP10 | IM-L3-REFRAME | {mood}の焦りは、反転の時を知らせる音になる |
-| T32-L3-A | T32 古いラジオ | VP21 | IM-L3-REFRAME | {mood}の声は、遠くではなく内側から届いている |
+| candidateId | profileId | text |
+| --- | --- | --- |
+| T01-L3-A | VP17 | {mood}の影は、紙の端で少しだけ向きを変える |
+| T02-L3-A | VP02 | {mood}は声にならず、{place}の奥で揺れている |
+| T03-L3-A | VP10 | {mood}の文字は、強く打つほど少しにじむ |
+| T04-L3-A | VP04 | {mood}を抱えた夜ほど、{symbol}は静かに光る |
+| T05-L3-A | VP28 | {mood}の切手は、返事より先に色を変える |
+| T06-L3-A | VP15 | {mood}の重さは、鍵穴の向きを教えている |
+| T07-L3-A | VP18 | {mood}はランプの輪の外で薄く伸びる |
+| T08-L3-A | VP08 | {mood}の雲は、動かないようで少し流れている |
+| T09-L3-A | VP18 | {mood}は迷いではなく、印を探す灯りになる |
+| T10-L3-A | VP10 | {mood}は遅れではなく、間隔を測る合図になる |
+| T11-L3-A | VP11 | {mood}は影の濃さではなく、灯りの位置を示す |
+| T12-L3-A | VP24 | {mood}は注釈となり、本文の意味を少し変える |
+| T13-L3-A | VP04 | {mood}のカーテンは、半分だけ光を通す |
+| T14-L3-A | VP07 | {mood}は乱れではなく、整える場所を知らせる |
+| T15-L3-A | VP26 | {mood}の風向きは、急な移動を求めていない |
+| T16-L3-A | VP21 | {mood}の像は、近すぎるほど輪郭を失う |
+| T17-L3-A | VP17 | {mood}の空白は、欠けではなく余地として残る |
+| T18-L3-A | VP18 | {mood}は消える合図ではなく、芯を整える知らせ |
+| T19-L3-A | VP10 | {mood}の足音は、急ぐほど響きが乱れる |
+| T20-L3-A | VP25 | {mood}の色は、時間を置くほど落ち着いて見える |
+| T21-L3-A | VP21 | {mood}の泡は、言葉になる前に上へ向かう |
+| T22-L3-A | VP22 | {mood}は絡まりではなく、ほどく順番を示す |
+| T23-L3-A | VP18 | {mood}のひびは、弱さではなく光の入口になる |
+| T24-L3-A | VP12 | {mood}の栞は、途中で止まる理由を教えている |
+| T25-L3-A | VP20 | {mood}の影は、振り返るほど形を整える |
+| T26-L3-A | VP21 | {mood}の露は、手に取る前に形を変える |
+| T27-L3-A | VP11 | {mood}の客席は、思うほど厳しく沈黙していない |
+| T28-L3-A | VP05 | {mood}の切手は、言葉の重さに合わせて選ばれる |
+| T29-L3-A | VP26 | {mood}の枝は、伸びる前に向きを迷っている |
+| T30-L3-A | VP22 | {mood}の待ち針は、留める場所を静かに示す |
+| T31-L3-A | VP10 | {mood}の焦りは、反転の時を知らせる音になる |
+| T32-L3-A | VP21 | {mood}の声は、遠くではなく内側から届いている |
 
 #### line4 / 第4週候補
 
-| candidateId | templateId | profileId | interpretationMetaId | text |
-| --- | --- | --- | --- | --- |
-| T01-L4-A | T01 古い占い紙面 | VP01 | IM-L4-ACTION | 急がず読めば、余白に{action}の印が見つかる |
-| T02-L4-A | T02 自動筆記 | VP17 | IM-L4-ACTION | 最後の一字を待てば、{action}余地が生まれる |
-| T03-L4-A | T03 タイプライター | VP03 | IM-L4-ACTION | 間隔を空けて、{action}ことが鍵になる |
-| T04-L4-A | T04 月明かり | VP18 | IM-L4-ACTION | 夜明け前に、ひとつだけ{action}とよい |
-| T05-L4-A | T05 封筒 | VP05 | IM-L4-ACTION | 開く前に、伝える順番を{action}こと |
-| T06-L4-A | T06 鍵と扉 | VP06 | IM-L4-ACTION | 開ける前に、戻る道を{action}とよい |
-| T07-L4-A | T07 机上の静物 | VP07 | IM-L4-ACTION | 手に取るものを一つ減らし、{action}こと |
-| T08-L4-A | T08 雨音 | VP08 | IM-L4-ACTION | 乾くまで待ち、最初の一歩を{action}とよい |
-| T09-L4-A | T09 迷路 | VP09 | IM-L4-ACTION | 戻れる角を覚えてから、{action}こと |
-| T10-L4-A | T10 暦と針 | VP10 | IM-L4-ACTION | 一日分だけ小さく{action}とよい |
-| T11-L4-A | T11 影絵 | VP11 | IM-L4-ACTION | 見える部分から、静かに{action}こと |
-| T12-L4-A | T12 古書 | VP12 | IM-L4-ACTION | 次の頁へ行く前に、前の行を{action}とよい |
-| T13-L4-A | T13 窓辺 | VP13 | IM-L4-ACTION | 全部を開けず、まず一角を{action}こと |
-| T14-L4-A | T14 小さな儀式 | VP14 | IM-L4-ACTION | 毎朝ひとつ、同じ動作を{action}とよい |
-| T15-L4-A | T15 地図と方位 | VP15 | IM-L4-ACTION | 方角を決める前に、現在地を{action}こと |
-| T16-L4-A | T16 鏡面 | VP16 | IM-L4-ACTION | 少し離れて、見えたことを{action}とよい |
-| T17-L4-A | T17 余白 | VP17 | IM-L4-ACTION | 決める前に、言葉をひとつ{action}こと |
-| T18-L4-A | T18 灯火 | VP18 | IM-L4-ACTION | 明るさを求めすぎず、手元から{action}とよい |
-| T19-L4-A | T19 階段 | VP19 | IM-L4-ACTION | 一段を選び、そこだけ{action}こと |
-| T20-L4-A | T20 古い写真 | VP20 | IM-L4-ACTION | 過去の一枚を選び、意味を{action}とよい |
-| T21-L4-A | T21 水槽 | VP21 | IM-L4-ACTION | 濁りを責めず、見える範囲から{action}こと |
-| T22-L4-A | T22 糸と結び目 | VP22 | IM-L4-ACTION | 端からひとつずつ、静かに{action}とよい |
-| T23-L4-A | T23 鉱物 | VP23 | IM-L4-ACTION | 硬い部分を残したまま、少しだけ{action}こと |
-| T24-L4-A | T24 図書館 | VP24 | IM-L4-ACTION | 借りた言葉を返し、自分の言葉で{action}とよい |
-| T25-L4-A | T25 夕暮れ | VP25 | IM-L4-ACTION | 暗くなる前に、小さな区切りを{action}こと |
-| T26-L4-A | T26 朝霧 | VP26 | IM-L4-ACTION | 遠くを決めず、足元から{action}とよい |
-| T27-L4-A | T27 劇場の幕 | VP27 | IM-L4-ACTION | 演じ切るより、立ち位置を{action}こと |
-| T28-L4-A | T28 郵便局 | VP28 | IM-L4-ACTION | 送る前に、一文だけ{action}とよい |
-| T29-L4-A | T29 庭園 | VP29 | IM-L4-ACTION | 育てるものを決め、余分な葉を{action}こと |
-| T30-L4-A | T30 裁縫箱 | VP30 | IM-L4-ACTION | 急いで縫わず、仮止めから{action}とよい |
-| T31-L4-A | T31 砂時計 | VP31 | IM-L4-ACTION | すべてを急がず、今日の粒だけ{action}こと |
-| T32-L4-A | T32 古いラジオ | VP32 | IM-L4-ACTION | 受け取る情報を選び、ひとつだけ{action}とよい |
+| candidateId | profileId | text |
+| --- | --- | --- |
+| T01-L4-A | VP01 | 急がず読めば、余白に{action}の印が見つかる |
+| T02-L4-A | VP17 | 最後の一字を待てば、{action}余地が生まれる |
+| T03-L4-A | VP03 | 間隔を空けて、{action}ことが鍵になる |
+| T04-L4-A | VP18 | 夜明け前に、ひとつだけ{action}とよい |
+| T05-L4-A | VP05 | 開く前に、伝える順番を{action}こと |
+| T06-L4-A | VP06 | 開ける前に、戻る道を{action}とよい |
+| T07-L4-A | VP07 | 手に取るものを一つ減らし、{action}こと |
+| T08-L4-A | VP08 | 乾くまで待ち、最初の一歩を{action}とよい |
+| T09-L4-A | VP09 | 戻れる角を覚えてから、{action}こと |
+| T10-L4-A | VP10 | 一日分だけ小さく{action}とよい |
+| T11-L4-A | VP11 | 見える部分から、静かに{action}こと |
+| T12-L4-A | VP12 | 次の頁へ行く前に、前の行を{action}とよい |
+| T13-L4-A | VP13 | 全部を開けず、まず一角を{action}こと |
+| T14-L4-A | VP14 | 毎朝ひとつ、同じ動作を{action}とよい |
+| T15-L4-A | VP15 | 方角を決める前に、現在地を{action}こと |
+| T16-L4-A | VP16 | 少し離れて、見えたことを{action}とよい |
+| T17-L4-A | VP17 | 決める前に、言葉をひとつ{action}こと |
+| T18-L4-A | VP18 | 明るさを求めすぎず、手元から{action}とよい |
+| T19-L4-A | VP19 | 一段を選び、そこだけ{action}こと |
+| T20-L4-A | VP20 | 過去の一枚を選び、意味を{action}とよい |
+| T21-L4-A | VP21 | 濁りを責めず、見える範囲から{action}こと |
+| T22-L4-A | VP22 | 端からひとつずつ、静かに{action}とよい |
+| T23-L4-A | VP23 | 硬い部分を残したまま、少しだけ{action}こと |
+| T24-L4-A | VP24 | 借りた言葉を返し、自分の言葉で{action}とよい |
+| T25-L4-A | VP25 | 暗くなる前に、小さな区切りを{action}こと |
+| T26-L4-A | VP26 | 遠くを決めず、足元から{action}とよい |
+| T27-L4-A | VP27 | 演じ切るより、立ち位置を{action}こと |
+| T28-L4-A | VP28 | 送る前に、一文だけ{action}とよい |
+| T29-L4-A | VP29 | 育てるものを決め、余分な葉を{action}こと |
+| T30-L4-A | VP30 | 急いで縫わず、仮止めから{action}とよい |
+| T31-L4-A | VP31 | すべてを急がず、今日の粒だけ{action}こと |
+| T32-L4-A | VP32 | 受け取る情報を選び、ひとつだけ{action}とよい |
 
 ### 4.3 行遷移候補一覧
 
@@ -437,7 +426,7 @@ const templateLineCatalog: TemplateLineCatalog = {
 
 テンプレート本文は詩としての骨格だけを持ち、各行に割り当てた語彙プロファイルから `{symbol}`、`{place}`、`{object}`、`{action}`、`{toneHint}`、`{adviceNuance}` を選ぶ。
 
-同じ語彙プロファイルは複数テンプレートに割り当ててよい。同じ語彙も複数プロファイルに含めてよい。たとえば「鍵」は、T06では選択肢の象徴、T15では現在地確認の道具、T23では変わりにくい価値観の入口として使える。
+同じ語彙プロファイルは複数の行候補に割り当ててよい。同じ語彙も複数プロファイルに含めてよい。たとえば「鍵」は、VP06では選択肢の象徴、VP15では現在地確認の道具、VP23では変わりにくい価値観の入口として使える。
 
 ```ts
 type LineVocabularyProfile = {
@@ -460,11 +449,6 @@ type TemplateLineMeta = {
   weekNumber: 1 | 2 | 3 | 4;
   role: "導入" | "テーマ提示" | "気分の読み替え" | "行動への着地";
   promptQuestion: string;
-};
-
-type TemplateLineInterpretationMeta = {
-  interpretationMetaId: string;
-  lineKey: "line1" | "line2" | "line3" | "line4";
   axis: string;
   inputUse: Array<"name" | "theme" | "mood" | "birthDate" | "gender">;
   promptFocus: string;
@@ -475,28 +459,19 @@ type TemplateLineInterpretationMeta = {
 
 #### 行番号ごとの基本メタ情報
 
-| 行 | 週 | role | promptQuestion |
-| --- | --- | --- | --- |
-| line1 | 第1週 | 導入 | 今月の入口で、相談テーマをどう眺め始めるか |
-| line2 | 第2週 | テーマ提示 | 相談テーマのどの条件や順番を見直すか |
-| line3 | 第3週 | 気分の読み替え | 今月の気分を、どのような合図として扱うか |
-| line4 | 第4週 | 行動への着地 | 月末に向けて、どの小さな行動へ落とすか |
+AI用プロンプトでは、`TemplateLineMeta`、語彙プロファイル、実際に選ばれた語彙を合わせて解釈軸を作る。
 
-#### 行ごとの解釈メタ情報
-
-候補文が同じ `lineKey` に属していても、解釈の焦点は完全には同じではない。候補には `interpretationMetaId` を持たせ、AI用プロンプトでは `TemplateLineMeta`、`TemplateLineInterpretationMeta`、語彙プロファイル、実際に選ばれた語彙を合わせて解釈軸を作る。
-
-| interpretationMetaId | 行 | axis | inputUse | promptFocus | caution | actionLanding |
-| --- | --- | --- | --- | --- | --- |
-| IM-L1-ENTRY | line1 | 月初の入口 | name, theme | 今月の始まりで何を観察対象にするか | 初手から結論や吉凶を決めない | まず眺める対象を一つ決める |
-| IM-L2-CONDITION | line2 | 条件と順番 | theme | 相談テーマの前提、順序、境界をどう見直すか | 相手の反応や結果を断定しない | 条件や順番を一つ確認する |
-| IM-L3-REFRAME | line3 | 気分の読み替え | mood, theme | 今月の気分を失敗ではなく合図として扱う | 不安を煽らず、感情を否定しない | 気分から分かる調整点を一つ拾う |
-| IM-L4-ACTION | line4 | 小さな着地 | name, theme, mood | 月末に向けて現実的に試せる行動へ落とす | 成功保証や専門判断にしない | 低リスクな一手に絞る |
+| 行 | 週 | role | promptQuestion | axis | inputUse | promptFocus | caution | actionLanding |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| line1 | 第1週 | 導入 | 今月の入口で、相談テーマをどう眺め始めるか | 月初の入口 | name, theme | 今月の始まりで何を観察対象にするか | 初手から結論や吉凶を決めない | まず眺める対象を一つ決める |
+| line2 | 第2週 | テーマ提示 | 相談テーマのどの条件や順番を見直すか | 条件と順番 | theme | 相談テーマの前提、順序、境界をどう見直すか | 相手の反応や結果を断定しない | 条件や順番を一つ確認する |
+| line3 | 第3週 | 気分の読み替え | 今月の気分を、どのような合図として扱うか | 気分の読み替え | mood, theme | 今月の気分を失敗ではなく合図として扱う | 不安を煽らず、感情を否定しない | 気分から分かる調整点を一つ拾う |
+| line4 | 第4週 | 行動への着地 | 月末に向けて、どの小さな行動へ落とすか | 小さな着地 | name, theme, mood | 月末に向けて現実的に試せる行動へ落とす | 成功保証や専門判断にしない | 低リスクな一手に絞る |
 
 #### 語彙プロファイル一覧
 
 | ID | 主な用途 | symbol候補 | place候補 | object候補 | action候補 | toneHint候補 | adviceNuance候補 | promptMeta.focus | promptMeta.caution | promptMeta.actionFrame |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | VP01 | 紙面・余白 | 紙, インク, 余白, 栞 | 机の端, 地図の余白, 書架の奥 | 万年筆, 便箋, 栞, 鉛筆 | 書き留める, 見直す, 置き直す, 区切る | 静かな記録, 余白の気配 | 未整理の情報を扱う | 書き出しと優先順位 | 空白を失敗として扱わない | まず一文だけ書く |
 | VP02 | 自動筆記・違和感 | 影, 足音, 静けさ, インク | 古い廊下, ランプの輪, 封筒の内側 | 万年筆, 小箱, 便箋 | 言葉にする, 保留する, 確かめる, 待つ | 受動的な筆致, 声になる前 | 違和感を小さく拾う | 感覚の言語化 | 命令や断定にしない | 気になる点を一つ残す |
 | VP03 | タイプライター・作業 | 針, 机, 砂時計, 周波数 | 机の端, 書架の奥, ランプの輪 | 定規, 鉛筆, 砂時計, 万年筆 | 見直す, 順番を変える, 減らす, 区切る | 短い打鍵, 硬い間隔 | 作業を分解する | 手順とリズム | 成功失敗を決めつけない | 今日の最小単位にする |
@@ -530,45 +505,6 @@ type TemplateLineInterpretationMeta = {
 | VP31 | 砂時計・優先順位 | 砂時計, 針, 足音, 階段 | 机の端, 階段の踊り場, 夕暮れの帰り道 | 砂時計, 定規, 鉛筆 | 区切る, 減らす, 順番を変える, 待つ | 粒, 反転 | 優先順位を見直す | 時間配分 | 焦りを煽らない | 今日の粒だけ扱う |
 | VP32 | ラジオ・情報選別 | 周波数, 静けさ, 足音, 書架 | 書架の奥, ランプの輪, 郵便局の仕分け台 | ラジオ, 鉛筆, カップ | 確かめる, 減らす, 距離を測る, 書き留める | 雑音, 受信 | 情報過多から距離を取る | 情報の選別 | 陰謀めいた断定を避ける | 受け取る情報を一つ減らす |
 
-#### テンプレート系統ごとの既定語彙プロファイル
-
-以下は `templateId` と `lineKey` の組み合わせに対する既定プロファイルである。実際の生成では、前行の `nextCandidates` で選ばれた候補自身の `profileId` を優先する。
-
-| テンプレート | line1 / 第1週 | line2 / 第2週 | line3 / 第3週 | line4 / 第4週 |
-| --- | --- | --- | --- | --- |
-| T01 古い占い紙面 | VP01 | VP01 | VP17 | VP01 |
-| T02 自動筆記 | VP02 | VP01 | VP02 | VP17 |
-| T03 タイプライター | VP03 | VP03 | VP10 | VP03 |
-| T04 月明かり | VP04 | VP11 | VP04 | VP18 |
-| T05 封筒 | VP05 | VP05 | VP28 | VP05 |
-| T06 鍵と扉 | VP06 | VP06 | VP15 | VP06 |
-| T07 机上の静物 | VP07 | VP07 | VP18 | VP07 |
-| T08 雨音 | VP08 | VP21 | VP08 | VP08 |
-| T09 迷路 | VP09 | VP09 | VP18 | VP09 |
-| T10 暦と針 | VP10 | VP31 | VP10 | VP10 |
-| T11 影絵 | VP11 | VP16 | VP11 | VP11 |
-| T12 古書 | VP12 | VP12 | VP24 | VP12 |
-| T13 窓辺 | VP13 | VP13 | VP04 | VP13 |
-| T14 小さな儀式 | VP14 | VP14 | VP07 | VP14 |
-| T15 地図と方位 | VP15 | VP15 | VP26 | VP15 |
-| T16 鏡面 | VP16 | VP16 | VP21 | VP16 |
-| T17 余白 | VP17 | VP17 | VP17 | VP17 |
-| T18 灯火 | VP18 | VP18 | VP18 | VP18 |
-| T19 階段 | VP19 | VP19 | VP10 | VP19 |
-| T20 古い写真 | VP20 | VP20 | VP25 | VP20 |
-| T21 水槽 | VP21 | VP21 | VP21 | VP21 |
-| T22 糸と結び目 | VP22 | VP22 | VP22 | VP22 |
-| T23 鉱物 | VP23 | VP23 | VP18 | VP23 |
-| T24 図書館 | VP24 | VP24 | VP12 | VP24 |
-| T25 夕暮れ | VP25 | VP25 | VP20 | VP25 |
-| T26 朝霧 | VP26 | VP26 | VP21 | VP26 |
-| T27 劇場の幕 | VP27 | VP27 | VP11 | VP27 |
-| T28 郵便局 | VP28 | VP28 | VP05 | VP28 |
-| T29 庭園 | VP29 | VP29 | VP26 | VP29 |
-| T30 裁縫箱 | VP30 | VP30 | VP22 | VP30 |
-| T31 砂時計 | VP31 | VP31 | VP10 | VP31 |
-| T32 古いラジオ | VP32 | VP32 | VP21 | VP32 |
-
 #### 行メタ情報の組み立て
 
 各行の `selectedTerms` には、語彙プロファイルから選ばれた語彙とメタ情報を保持する。
@@ -576,7 +512,6 @@ type TemplateLineInterpretationMeta = {
 ```ts
 type SelectedLineTerms = {
   lineMeta: TemplateLineMeta;
-  interpretationMeta: TemplateLineInterpretationMeta;
   profileId: string;
   symbol?: string;
   place?: string;
@@ -598,12 +533,12 @@ type SelectedLineTerms = {
 
 `buildInterpretationAxis` では、各行について以下の順で解釈軸を作る。
 
-1. `lineMeta.role` と `interpretationMeta.axis` で週の役割と解釈の方向を決める。
-2. `interpretationMeta.inputUse` を見て、入力値のうち自然に反映する要素を決める。
-3. `focus` と `interpretationMeta.promptFocus` で助言の焦点を決める。
+1. `lineMeta.role` と `lineMeta.axis` で週の役割と解釈の方向を決める。
+2. `lineMeta.inputUse` を見て、入力値のうち自然に反映する要素を決める。
+3. `focus` と `lineMeta.promptFocus` で助言の焦点を決める。
 4. `symbolMeta`、`placeMeta`、`objectMeta` で詩の根拠語を拾う。
-5. `actionMeta`、`actionFrame`、`interpretationMeta.actionLanding` で、現実的な小さい行動へ落とす。
-6. `caution` と `interpretationMeta.caution` を使い、断定や煽りを避ける。
+5. `actionMeta`、`actionFrame`、`lineMeta.actionLanding` で、現実的な小さい行動へ落とす。
+6. `caution` と `lineMeta.caution` を使い、断定や煽りを避ける。
 
 ## 5. 語彙バリエーション
 
@@ -730,7 +665,7 @@ type VocabularyPromptMeta = {
 
 ## 6. テンプレート・AIプロンプト対応表
 
-AI用プロンプトは、予言文をそのまま拡張するのではなく、相談テーマに関係する現実的な助言へ読み替える。解釈軸は、固定の分類名や分類IDではなく、実際に選ばれた4行、各行の `templateId`、`candidateId`、`profileId`、`interpretationMetaId`、差し込まれた語彙から作る。
+AI用プロンプトは、予言文をそのまま拡張するのではなく、相談テーマに関係する現実的な助言へ読み替える。解釈軸は、固定の分類名や分類IDではなく、実際に選ばれた4行、各行の `candidateId`、`profileId`、行番号ごとの基本メタ情報、差し込まれた語彙から作る。
 
 ### 6.1 解釈軸の生成ルール
 
@@ -739,12 +674,12 @@ AI用プロンプトは、予言文をそのまま拡張するのではなく、
 ```text
 第{weekNumber}週は、{lineMeta.role}として読む。
 詩中の「{selected symbol/place/object}」は、{vocabularyMeta.reading}の比喩として扱う。
-助言では{lineProfile.promptMeta.focus}と{interpretationMeta.promptFocus}を中心にする。
-注意点は{lineProfile.promptMeta.caution}と{interpretationMeta.caution}に従う。
-行動は「{selected action}」のメタ情報に沿って、{interpretationMeta.actionLanding}程度の小さな一手へ落とす。
+助言では{lineProfile.promptMeta.focus}と{lineMeta.promptFocus}を中心にする。
+注意点は{lineProfile.promptMeta.caution}と{lineMeta.caution}に従う。
+行動は「{selected action}」のメタ情報に沿って、{lineMeta.actionLanding}程度の小さな一手へ落とす。
 ```
 
-月全体の解釈軸は、選ばれた4行の `promptMeta.focus`、`interpretationMeta.axis`、`actionLanding` をつないで作る。
+月全体の解釈軸は、選ばれた4行の `promptMeta.focus`、`lineMeta.axis`、`actionLanding` をつないで作る。
 
 ```text
 全体として、{week1.axis}から始まり、{week2.axis}で条件を見直し、{week3.axis}で気分を読み替え、{week4.axis}で小さな行動へ着地する流れとして読む。
@@ -753,20 +688,19 @@ AI用プロンプトは、予言文をそのまま拡張するのではなく、
 
 ### 6.2 メタ情報の優先順位
 
-同じ語彙が複数テンプレートや複数プロファイルに出る場合は、以下の優先順位で意味を決める。
+同じ語彙が複数の行候補や複数プロファイルに出る場合は、以下の優先順位で意味を決める。
 
 1. その行に割り当てられた `LineVocabularyProfile.promptMeta`
-2. 行候補の `TemplateLineInterpretationMeta`
+2. 行番号ごとの `TemplateLineMeta`
 3. 選ばれた語彙の `VocabularyPromptMeta`
-4. 行番号の `TemplateLineMeta`
-5. ユーザー入力の `theme` と `mood`
+4. ユーザー入力の `theme` と `mood`
 
-たとえば「鍵」が選ばれた場合でも、T06 / VP06 では「選択条件」、T15 / VP15 では「現在地確認」、T23 / VP23 では「変えない部分と変える部分の境界」として扱う。語彙そのものの意味を固定しすぎず、行プロファイルで読み替える。
+たとえば「鍵」が選ばれた場合でも、VP06 では「選択条件」、VP15 では「現在地確認」、VP23 では「変えない部分と変える部分の境界」として扱う。語彙そのものの意味を固定しすぎず、行プロファイルで読み替える。
 
 ## 7. AIプロンプト雛形
 
 AI用プロンプトは相談テーマごとに分けず、以下の共通プロンプトを1つだけ使う。
-生成された四行詩を読む観点は、実際に選ばれた4行、各行のテンプレート、差し込まれた象徴語・道具語・行動語、週ごとの助言ニュアンスから組み立てた `{interpretationAxis}` に差し込む。
+生成された四行詩を読む観点は、実際に選ばれた4行、各行の `candidateId` と `profileId`、差し込まれた象徴語・道具語・行動語、週ごとの助言ニュアンスから組み立てた `{interpretationAxis}` に差し込む。
 
 ```text
 あなたは日本語で、占い風の四行詩を現実的な助言に読み替えるアシスタントです。
@@ -815,14 +749,14 @@ AI用プロンプトは相談テーマごとに分けず、以下の共通プロ
 候補が複数ある場合は、以下の観点をスコア化し、最も高い候補を選ぶ。
 
 - 直前行の `profileId` と自然につながるか。
-- 直前行の `interpretationMetaId` から、次の週の `interpretationMetaId` へ流れがあるか。
+- 直前行の `lineMeta.axis` から、次の週の `lineMeta.axis` へ流れがあるか。
 - `theme` と `mood` に含まれる語と、候補の語彙プロファイルが近いか。
-- 同じ `templateId` に閉じすぎず、月全体の流れに変化があるか。
+- 同じ `profileId` に閉じすぎず、月全体の流れに変化があるか。
 - 禁止または回避する表現に近づかないか。
 
 同点の場合のみ、入力値由来のシードと `randomSalt` で安定的にタイブレークする。
 
-`nextCandidates` が空、未定義、または参照先が見つからない場合は、現在の週番号に対応する行だけをフォールバック候補にする。フォールバックでも全行候補から無制限に選ばず、直前行の `profileId`、`interpretationMetaId`、相談テーマに近い候補だけを対象にする。
+`nextCandidates` が空、未定義、または参照先が見つからない場合は、現在の週番号に対応する行だけをフォールバック候補にする。フォールバックでも全行候補から無制限に選ばず、直前行の `profileId`、行番号ごとの基本メタ情報、相談テーマに近い候補だけを対象にする。
 
 ```text
 line1Candidates -> week1 seededRandom selection
@@ -834,10 +768,10 @@ week3Candidate.nextCandidates -> week4 greedy selection
 ### 8.2 AIプロンプト生成
 
 AI用プロンプトは、相談テーマに関係なく `7. AIプロンプト雛形` の共通プロンプトを使う。
-相談テーマによるプロンプト雛形の出し分けは行わない。`四行詩の解釈軸` は、対応表の基礎語彙だけで固定せず、生成時に選ばれた4行、各行のテンプレート、差し込まれた象徴語・道具語・行動語、週ごとの助言ニュアンスを集約して作る。
+相談テーマによるプロンプト雛形の出し分けは行わない。`四行詩の解釈軸` は、対応表の基礎語彙だけで固定せず、生成時に選ばれた4行、各行の `candidateId` と `profileId`、差し込まれた象徴語・道具語・行動語、週ごとの助言ニュアンスを集約して作る。
 
 ```text
-selectedWeeks -> selectedTemplateIds -> selectedTerms -> weeklyNuances -> interpretationAxis
+selectedWeeks -> selectedTerms -> weeklyNuances -> interpretationAxis
 ```
 
 解釈軸に含める内容:
@@ -881,7 +815,7 @@ selectedWeeks -> selectedTemplateIds -> selectedTerms -> weeklyNuances -> interp
 
 ## 10. 実装メモ
 
-- テンプレート ID、候補 ID、解釈軸の基礎語彙は定数化する。最終的な四行詩の解釈軸は、実際に選ばれた4行と語彙から生成する。
+- 候補 ID、行番号ごとの基本メタ情報、解釈軸の基礎語彙は定数化する。最終的な四行詩の解釈軸は、実際に選ばれた4行と語彙から生成する。
 - 禁止語彙は生成結果に含まれないよう、テンプレート側で避ける。
 - AI用プロンプトには、実際に選ばれた4行と語彙から組み立てた四行詩の解釈軸を含めると、助言の方向が安定する。
 - 4週分は、直前の行候補の `nextCandidates` をたどって次行を貪欲に選ぶ。第1週は T01 の `line1`、第2週は T10 の `line2` のような混合は可能だが、次行候補として明示された自然な接続だけを基本にする。
