@@ -548,7 +548,11 @@ const rng = createSeededRandom(seed, randomSalt);
 ### 9.1 生成関数
 
 ```ts
-export function buildAiPrompt(input: ProphecyInput, weeks: ProphecyWeek[]): string;
+export function buildAiPrompt(
+  input: ProphecyInput,
+  weeks: ProphecyWeek[],
+  interpretationAxis: string,
+): string;
 ```
 
 ### 9.2 プロンプト構成
@@ -558,8 +562,9 @@ AI用プロンプトは以下の順に組み立てる。
 1. 依頼文
 2. ユーザー入力
 3. アプリ内生成の四行詩
-4. 出力条件
-5. 注意事項
+4. 四行詩の解釈軸
+5. 出力条件
+6. 注意事項
 
 ### 9.3 プロンプト文面
 
@@ -579,9 +584,13 @@ AI用プロンプトは以下の順に組み立てる。
 【四行詩】
 ...
 
+【四行詩の解釈軸】
+...
+
 【出力条件】
 - 日本語で出力する
 - 四行詩の内容を助言の根拠として扱う
+- 四行詩の解釈軸を、読み替えの観点として扱う
 - ユーザーの相談テーマに直接関係する助言を返す
 - 不穏さを煽らず、次に取れる小さな行動へ落とし込む
 - 占いや予言として断定せず、解釈の一例として提示する
