@@ -469,10 +469,11 @@ export function createSeededRandom(seed: string, randomSalt: string): () => numb
 
 以下のような週番号別テンプレート候補から、入力値由来のシードと生成操作ごとのランダム値で初期化した疑似乱数を使って選択する。
 
-固定の4週セットを1つ選ぶのではなく、選択された文体に属する `line1`、`line2`、`line3`、`line4` の候補をそれぞれ第1週、第2週、第3週、第4週として個別に選び、1ヶ月分の予言として組み合わせる。これにより同じ文体でも週単位の表現差分を作れる。
+固定の4週セットを1つ選ぶのではなく、選択された文体に属するテンプレート候補から週ごとにテンプレート ID を選び、第1週はそのテンプレートの `line1`、第2週はそのテンプレートの `line2`、第3週はそのテンプレートの `line3`、第4週はそのテンプレートの `line4` から個別に選ぶ。これにより、たとえば第1週は T01 の `line1`、第2週は T10 の `line2` のように、同じ月の中でテンプレートを混ぜられる。
 
 ```ts
 type LineTemplateSet = {
+  templateId: string;
   styleId: StyleId;
   // line1からline4は、第1週から第4週に対応する候補。
   line1: string[];
@@ -482,6 +483,7 @@ type LineTemplateSet = {
 };
 
 const paperLineTemplates: LineTemplateSet = {
+  templateId: "T01",
   styleId: "S01",
   line1: [
     "{name}の名を薄いインクが覚え、{theme}の余白に小さな{symbol}が残る",
@@ -502,7 +504,9 @@ const paperLineTemplates: LineTemplateSet = {
 };
 ```
 
-実装時は、各週の候補文が1行だけで成立するようにする。名前、相談テーマ、今月の気分、小さな行動への余地は、特定の行だけに固定せず、各週の候補内へ必要に応じて自然に含める。週番号は表示上の見出しで示し、詩本文には含めない。
+各週の候補文は1行だけで成立する文にする。名前、相談テーマ、今月の気分、小さな行動への余地は、特定の行だけに固定せず、各週の候補内へ必要に応じて自然に含める。週番号は表示上の見出しで示し、詩本文には含めない。
+
+週ごとに選んだ `templateId` は `ProphecyWeek.templateId` に保持する。`interpretationAxis` は、4週それぞれで実際に選ばれたテンプレート ID、行番号、語彙、助言ニュアンスをもとに組み立てる。
 
 ### 8.5 シード付きランダム生成
 
