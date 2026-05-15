@@ -81,7 +81,7 @@
 
 ## 4. テンプレートバリエーション
 
-各テンプレートは4週分で構成する。ただし、テンプレートバリエーションを4行セットとしてそのまま使わない。文体 ID とシード付き乱数により、週ごとにテンプレート ID と行候補を個別に選び、1ヶ月分の予言として組み合わせる。
+各テンプレートは4週分で構成する。ただし、テンプレートバリエーションを4行セットとしてそのまま使わない。第1週の行候補を選んだ後、その候補が持つ `nextCandidates` をたどりながら第2週以降の行候補を選び、1ヶ月分の予言として組み合わせる。
 
 `line1` から `line4` は、詩の中の役割ではなく週番号に対応する。
 
@@ -97,50 +97,92 @@
 実装上の構造は以下を基本にする。
 
 ```ts
+type TemplateLineKey = "line1" | "line2" | "line3" | "line4";
+
+type TemplateLineCandidateRef = {
+  templateId: string;
+  lineKey: TemplateLineKey;
+  candidateId: string;
+};
+
+type TemplateLineCandidate = {
+  candidateId: string;
+  text: string;
+  profileId: string;
+  nextCandidates?: TemplateLineCandidateRef[];
+};
+
 type TemplateVariation = {
   templateId: string;
   styleIds: string[];
-  line1: string[];
-  line2: string[];
-  line3: string[];
-  line4: string[];
+  line1: TemplateLineCandidate[];
+  line2: TemplateLineCandidate[];
+  line3: TemplateLineCandidate[];
+  line4: TemplateLineCandidate[];
 };
 ```
 
-生成時は、まず第1週から第4週までそれぞれにテンプレート ID を選ぶ。次に、第1週なら選ばれたテンプレートの `line1` から1文、第2週なら選ばれたテンプレートの `line2` から1文、第3週なら選ばれたテンプレートの `line3` から1文、第4週なら選ばれたテンプレートの `line4` から1文を選ぶ。
+生成時は、第1週の候補を選んだあと、その候補が持つ `nextCandidates` から第2週の候補を選ぶ。第2週、第3週も同じように、直前に選ばれた候補が次行候補を制約する。`nextCandidates` が空または未定義の場合のみ、同じ文体 ID に対応するテンプレート候補からフォールバック選択する。
 
-たとえば、第1週は T01 の `line1`、第2週は T10 の `line2`、第3週は T04 の `line3`、第4週は T17 の `line4` のように組み合わせてよい。週番号と行番号の対応は固定し、T10 の `line1` を第2週に使うような入れ替えはしない。
+たとえば、第1週で T01 の `line1` 候補 `T01-L1-A` が選ばれた場合、その候補の `nextCandidates` に T10 の `line2` 候補 `T10-L2-B` や T17 の `line2` 候補 `T17-L2-A` を持たせる。第2週はその候補群から選ぶため、単純な全体ランダムではなく、前行から自然につながる行だけが次に来る。
 
-文体の統一感は、最初に選んだ文体 ID に対応するテンプレート候補から週ごとのテンプレート ID を選ぶことで保つ。必要に応じて、相談テーマに合う近接文体のテンプレートを少量混ぜてもよいが、各週の `templateId` は `ProphecyWeek` に保持する。
+第1週は T01 の `line1`、第2週は T10 の `line2`、第3週は T04 の `line3`、第4週は T17 の `line4` のように組み合わせてよい。週番号と行番号の対応は固定し、T10 の `line1` を第2週に使うような入れ替えはしない。
 
-### 週別候補の例
+文体の統一感は、最初に選んだ文体 ID に対応するテンプレート候補を遷移候補の中心にすることで保つ。必要に応じて、相談テーマに合う近接文体のテンプレートを少量混ぜてもよいが、各週の `templateId` と `candidateId` は `ProphecyWeek` に保持する。
+
+### 行遷移の例
+
+以下は構造を示すための例である。候補文は `candidateId` を持ち、次に来て自然な行候補を `nextCandidates` に列挙する。
 
 ```ts
 const paperTemplate: TemplateVariation = {
   templateId: "T01",
   styleIds: ["S01", "S07", "S17"],
   line1: [
-    "{name}の名を薄いインクが覚え、{theme}の余白に小さな{symbol}が残る",
-    "紙面の隅で{name}の文字が乾き、{mood}の影が少しだけ向きを変える",
-    "{theme}の欄に細い罫線が引かれ、急がず{action}印が見える",
+    {
+      candidateId: "T01-L1-A",
+      text: "{name}の名を薄いインクが覚え、{theme}の余白に小さな{symbol}が残る",
+      profileId: "VP01",
+      nextCandidates: [
+        { templateId: "T01", lineKey: "line2", candidateId: "T01-L2-A" },
+        { templateId: "T10", lineKey: "line2", candidateId: "T10-L2-B" },
+        { templateId: "T17", lineKey: "line2", candidateId: "T17-L2-A" },
+      ],
+    },
   ],
   line2: [
-    "{theme}へ向かう行間に小さな{object}が挟まれ、{name}は順番を{action}",
-    "{mood}という余白は読まれる前に深くなり、{symbol}だけが静かに光る",
-    "{theme}という見出しはまだ余白を残し、ひとつ{action}余地を置く",
+    {
+      candidateId: "T01-L2-A",
+      text: "{theme}へ向かう行間に小さな{object}が挟まれ、{name}は順番を{action}",
+      profileId: "VP01",
+      nextCandidates: [
+        { templateId: "T01", lineKey: "line3", candidateId: "T01-L3-A" },
+        { templateId: "T12", lineKey: "line3", candidateId: "T12-L3-A" },
+      ],
+    },
   ],
   line3: [
-    "{mood}の気配は古い活字の間で滲み、{theme}の読み方を少し変える",
-    "{name}の手元で{object}が黙り、見えたことを{action}時が来る",
-    "{symbol}の影が紙の端で揺れ、{theme}は別の置き場所を求める",
+    {
+      candidateId: "T01-L3-A",
+      text: "{mood}の気配は古い活字の間で滲み、{theme}の読み方を少し変える",
+      profileId: "VP17",
+      nextCandidates: [
+        { templateId: "T01", lineKey: "line4", candidateId: "T01-L4-A" },
+        { templateId: "T18", lineKey: "line4", candidateId: "T18-L4-A" },
+      ],
+    },
   ],
   line4: [
-    "最後の罫線を越える前に、{name}は手元の言葉を{action}とよい",
-    "{theme}の余白に残る印を読み、次へ移る前にひとつ{action}",
-    "{mood}の影が薄くなるころ、急がず{action}ことで月が閉じる",
+    {
+      candidateId: "T01-L4-A",
+      text: "最後の罫線を越える前に、{name}は手元の言葉を{action}とよい",
+      profileId: "VP01",
+    },
   ],
 };
 ```
+
+`nextCandidates` は自然な接続を表す。たとえば、余白や紙面から始まる第1週は、時間管理へ急に飛ぶよりも、行間、保留、記録、見直しへ進む候補を多く持たせる。逆に、仕事や締切のテーマでタイプライター調の行が選ばれた場合は、次行候補に暦、砂時計、階段などを含めると流れが自然になる。
 
 以下の `T01` 以降は文体ごとの基準例である。各行はそのまま詩中の役割として扱わず、第1週から第4週の候補文として展開する。
 
@@ -903,18 +945,21 @@ AI用プロンプトは文体や相談テーマごとに分けず、以下の共
 
 ### 8.2 テンプレート選択
 
-文体 ID に紐づくテンプレート候補から、週ごとにテンプレート ID を1つずつ選ぶ。次に、その週のテンプレート ID と行番号に対応する候補文を選ぶ。
+文体 ID に紐づくテンプレート候補から、第1週の候補を1つ選ぶ。第2週以降は、直前に選ばれた行候補の `nextCandidates` に含まれる候補から選ぶ。
 
-たとえば `week1TemplateId = T01`、`week2TemplateId = T10`、`week3TemplateId = T04`、`week4TemplateId = T17` のように選び、第1週は T01 の `line1`、第2週は T10 の `line2`、第3週は T04 の `line3`、第4週は T17 の `line4` を使う。
+たとえば `week1Candidate = T01-L1-A` が選ばれ、その候補の `nextCandidates` に `T10-L2-B` と `T17-L2-A` がある場合、第2週はその2候補から選ぶ。第2週で選ばれた候補がさらに第3週候補を持ち、第3週が第4週候補を持つ。
 
-1ヶ月全体で文体の統一感を保つため、基本的には選ばれた文体 ID に対応するテンプレート候補内で週ごとのテンプレート ID を選ぶ。同じ文体に対応するテンプレートが少ない場合や、相談テーマとの相性を上げたい場合は、近接文体のテンプレートを混ぜてもよい。ただし、週番号の対応は守り、第1週候補を第3週に使うような入れ替えはしない。
+`nextCandidates` は、語彙プロファイル、文体、相談テーマとの相性、週の役割をもとに用意する。第1週から第4週まで完全に独立したランダム選択にはしない。
+
+1ヶ月全体で文体の統一感を保つため、基本的には選ばれた文体 ID に対応するテンプレート候補内で遷移候補を作る。同じ文体に対応するテンプレートが少ない場合や、相談テーマとの相性を上げたい場合は、近接文体のテンプレートを遷移候補に含めてもよい。ただし、週番号の対応は守り、第1週候補を第3週に使うような入れ替えはしない。
+
+`nextCandidates` が空、未定義、または参照先が見つからない場合は、同じ文体 ID または近接文体に属する候補から、現在の週番号に対応する行だけをフォールバック候補にする。フォールバックでも全テンプレートから無制限に選ばない。
 
 ```text
-styleId -> candidateTemplateIds
-candidateTemplateIds -> week1TemplateId -> line1Candidates -> week1 seededRandom selection
-candidateTemplateIds -> week2TemplateId -> line2Candidates -> week2 seededRandom selection
-candidateTemplateIds -> week3TemplateId -> line3Candidates -> week3 seededRandom selection
-candidateTemplateIds -> week4TemplateId -> line4Candidates -> week4 seededRandom selection
+styleId -> candidateTemplateIds -> line1Candidates -> week1 seededRandom selection
+week1Candidate.nextCandidates -> week2 seededRandom selection
+week2Candidate.nextCandidates -> week3 seededRandom selection
+week3Candidate.nextCandidates -> week4 seededRandom selection
 ```
 
 ### 8.3 AIプロンプト生成
@@ -971,5 +1016,5 @@ selectedWeeks -> selectedTemplateIds -> selectedTerms -> weeklyNuances -> interp
 - 文体 ID、テンプレート ID、解釈軸の基礎語彙は定数化する。最終的な四行詩の解釈軸は、実際に選ばれた4行と語彙から生成する。
 - 禁止語彙は生成結果に含まれないよう、テンプレート側で避ける。
 - AI用プロンプトには文体名を含めず、実際に選ばれた4行と語彙から組み立てた四行詩の解釈軸を含めると、助言の方向が安定する。
-- 4週分は同じ文体 ID を軸にしつつ、週ごとにテンプレート ID を選び直す。第1週は T01 の `line1`、第2週は T10 の `line2` のような混合を基本にすると、固定の4行セット感が薄れる。
+- 4週分は同じ文体 ID を軸にしつつ、直前の行候補の `nextCandidates` をたどって次行を選ぶ。第1週は T01 の `line1`、第2週は T10 の `line2` のような混合は可能だが、次行候補として明示された自然な接続だけを基本にする。
 - 再生成では `randomSalt` により文体や語彙を変えつつ、相談テーマから大きく外れないようにする。

@@ -151,6 +151,8 @@ export type ProphecyWeek = {
   weekNumber: 1 | 2 | 3 | 4;
   line: string;
   templateId: string;
+  candidateId: string;
+  lineKey: "line1" | "line2" | "line3" | "line4";
   selectedTerms: {
     symbol?: string;
     place?: string;
@@ -177,9 +179,9 @@ export type ProphecyResult = {
 
 `generatedAt` は画面表示必須ではないが、結果生成のタイミングを確認できるよう保持する。予言本文とAI用プロンプトの内容は `generatedAt` に依存させない。
 
-`templateId`、`selectedTerms` は画面表示必須ではない。AI用プロンプトに含める `interpretationAxis` を、実際に選ばれた4行と語彙から組み立てるために保持する。
+`templateId`、`candidateId`、`lineKey`、`selectedTerms` は画面表示必須ではない。AI用プロンプトに含める `interpretationAxis` を、実際に選ばれた4行と語彙から組み立てるために保持する。
 
-`interpretationAxis` は、固定の文体名ではなく、4週分の `line`、各週のテンプレート、差し込まれた語彙、週ごとの助言ニュアンスを要約した文字列にする。
+`interpretationAxis` は、固定の文体名ではなく、4週分の `line`、各週のテンプレート、候補 ID、差し込まれた語彙、週ごとの助言ニュアンスを要約した文字列にする。
 
 ### 4.3 バリデーションエラー
 
@@ -429,9 +431,10 @@ export function createSeededRandom(seed: string, randomSalt: string): () => numb
 - 常に4週分を返す。
 - `weekNumber` は1から4まで順に設定する。
 - 各週の `line` は必ず1つの文字列にする。
-- 各週の本文は、選択された文体の週番号別テンプレート候補から個別に選ぶ。
-- 第1週から第4週までの組み合わせは固定せず、シード付き疑似乱数で再結合する。
-- 各週には、選ばれたテンプレートID、差し込んだ語彙、助言ニュアンスをメタ情報として保持する。
+- 第1週の本文は、選択された文体の `line1` 候補から選ぶ。
+- 第2週から第4週の本文は、直前に選ばれた候補の `nextCandidates` から選ぶ。
+- 第1週から第4週までの組み合わせは固定しないが、各行を完全に独立したランダム選択にはしない。
+- 各週には、選ばれたテンプレートID、候補ID、行番号、差し込んだ語彙、助言ニュアンスをメタ情報として保持する。
 - 各週の `line` は日本語文字列にする。
 - 空行は生成しない。
 - 危害、病気、死、犯罪、金銭損失を断定的に予告する語句は使わない。
@@ -469,44 +472,81 @@ export function createSeededRandom(seed: string, randomSalt: string): () => numb
 
 以下のような週番号別テンプレート候補から、入力値由来のシードと生成操作ごとのランダム値で初期化した疑似乱数を使って選択する。
 
-固定の4週セットを1つ選ぶのではなく、選択された文体に属するテンプレート候補から週ごとにテンプレート ID を選び、第1週はそのテンプレートの `line1`、第2週はそのテンプレートの `line2`、第3週はそのテンプレートの `line3`、第4週はそのテンプレートの `line4` から個別に選ぶ。これにより、たとえば第1週は T01 の `line1`、第2週は T10 の `line2` のように、同じ月の中でテンプレートを混ぜられる。
+固定の4週セットを1つ選ぶのではなく、選択された文体に属するテンプレート候補から第1週の候補を選び、その候補が持つ `nextCandidates` をたどって第2週以降を選ぶ。第1週は T01 の `line1`、第2週は T10 の `line2` のように同じ月の中でテンプレートを混ぜられるが、第2週以降は直前の行候補が指定する自然な候補群から選ぶ。
 
 ```ts
+type TemplateLineKey = "line1" | "line2" | "line3" | "line4";
+
+type TemplateLineCandidateRef = {
+  templateId: string;
+  lineKey: TemplateLineKey;
+  candidateId: string;
+};
+
+type TemplateLineCandidate = {
+  candidateId: string;
+  text: string;
+  profileId: string;
+  nextCandidates?: TemplateLineCandidateRef[];
+};
+
 type LineTemplateSet = {
   templateId: string;
   styleId: StyleId;
   // line1からline4は、第1週から第4週に対応する候補。
-  line1: string[];
-  line2: string[];
-  line3: string[];
-  line4: string[];
+  line1: TemplateLineCandidate[];
+  line2: TemplateLineCandidate[];
+  line3: TemplateLineCandidate[];
+  line4: TemplateLineCandidate[];
 };
 
 const paperLineTemplates: LineTemplateSet = {
   templateId: "T01",
   styleId: "S01",
   line1: [
-    "{name}の名を薄いインクが覚え、{theme}の余白に小さな{symbol}が残る",
-    "紙面の隅で{name}の文字が乾き、{mood}の影が少しだけ向きを変える",
+    {
+      candidateId: "T01-L1-A",
+      text: "{name}の名を薄いインクが覚え、{theme}の余白に小さな{symbol}が残る",
+      profileId: "VP01",
+      nextCandidates: [
+        { templateId: "T01", lineKey: "line2", candidateId: "T01-L2-A" },
+        { templateId: "T10", lineKey: "line2", candidateId: "T10-L2-B" },
+      ],
+    },
   ],
   line2: [
-    "{theme}へ向かう行間に小さな{object}が挟まれ、{name}は順番を{action}",
-    "{mood}という余白は読まれる前に深くなり、{symbol}だけが静かに光る",
+    {
+      candidateId: "T01-L2-A",
+      text: "{theme}へ向かう行間に小さな{object}が挟まれ、{name}は順番を{action}",
+      profileId: "VP01",
+      nextCandidates: [
+        { templateId: "T01", lineKey: "line3", candidateId: "T01-L3-A" },
+      ],
+    },
   ],
   line3: [
-    "{mood}の気配は古い活字の間で滲み、{theme}の読み方を少し変える",
-    "{name}の手元で{object}が黙り、見えたことを{action}時が来る",
+    {
+      candidateId: "T01-L3-A",
+      text: "{mood}の気配は古い活字の間で滲み、{theme}の読み方を少し変える",
+      profileId: "VP17",
+      nextCandidates: [
+        { templateId: "T01", lineKey: "line4", candidateId: "T01-L4-A" },
+      ],
+    },
   ],
   line4: [
-    "最後の罫線を越える前に、{name}は手元の言葉を{action}とよい",
-    "{theme}の余白に残る印を読み、次へ移る前にひとつ{action}",
+    {
+      candidateId: "T01-L4-A",
+      text: "最後の罫線を越える前に、{name}は手元の言葉を{action}とよい",
+      profileId: "VP01",
+    },
   ],
 };
 ```
 
 各週の候補文は1行だけで成立する文にする。名前、相談テーマ、今月の気分、小さな行動への余地は、特定の行だけに固定せず、各週の候補内へ必要に応じて自然に含める。週番号は表示上の見出しで示し、詩本文には含めない。
 
-週ごとに選んだ `templateId` は `ProphecyWeek.templateId` に保持する。`interpretationAxis` は、4週それぞれで実際に選ばれたテンプレート ID、行番号、語彙、助言ニュアンスをもとに組み立てる。
+週ごとに選んだ `templateId` と `candidateId` は `ProphecyWeek` に保持する。`interpretationAxis` は、4週それぞれで実際に選ばれたテンプレート ID、候補 ID、行番号、語彙、助言ニュアンスをもとに組み立てる。
 
 ### 8.5 シード付きランダム生成
 
