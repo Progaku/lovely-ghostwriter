@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pull Request Reviewer"
+  short_description: "Issue連携、仕様適合、品質、安全性を確認するPRレビュー支援。"
+  default_prompt: "このpull requestをレビューしてください。関連issueを確認し、要件充足、プロジェクト規約、ベストプラクティス、脆弱性や不具合の有無を日本語で指摘してください。"
