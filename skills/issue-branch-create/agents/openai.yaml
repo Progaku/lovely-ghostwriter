@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue ブランチ作成"
+  short_description: "指定されたissueを確認し、作業用ブランチを作成する"
+  default_prompt: "指定されたGitHub issueを読み取り、要件と作業範囲を確認して、このリポジトリの命名規則に沿った作業ブランチを作成してください。"
