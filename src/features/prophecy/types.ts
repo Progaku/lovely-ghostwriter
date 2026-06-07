@@ -12,11 +12,7 @@ export type ProphecyInput = {
   name: string;
   /** Date Calendarから受け取る生年月日 */
   birthDate: Date;
-  /**
-   * 任意入力の性別
-   *
-   * @note 未選択の場合は undefined
-   */
+  /** 性別 */
   gender?: Gender;
   /** ユーザーが相談したいテーマ */
   theme: string;
