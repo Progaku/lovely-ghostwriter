@@ -1,4 +1,8 @@
 export type {
+  ValidatableProphecyInput,
+} from "./logic/validation";
+
+export type {
   CopyStatus,
   CopyStatusState,
   CopyErrorStatus,
@@ -24,3 +28,6 @@ export type {
   VocabularyPromptMeta,
   WeekNumber,
 } from "./types";
+
+export { genderOptions, inputMaxLengths, moodSuggestions } from "./constants/input";
+export { validateInput } from "./logic/validation";

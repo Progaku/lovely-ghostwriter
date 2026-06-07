@@ -1,7 +1,5 @@
 /**
  * 入力フォームで扱える性別の選択値
- *
- * @note 未入力は undefined で表す
  */
 export type Gender = "男性" | "女性" | "その他";
 
@@ -12,8 +10,8 @@ export type WeekNumber = 1 | 2 | 3 | 4;
 export type ProphecyInput = {
   /** 表示やseed生成に使うユーザー名 */
   name: string;
-  /** ブラウザ日付入力から受け取る生年月日 */
-  birthDate: string;
+  /** Date Calendarから受け取る生年月日 */
+  birthDate: Date;
   /**
    * 任意入力の性別
    *
