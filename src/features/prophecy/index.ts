@@ -35,4 +35,5 @@ export { lineMetaByKey, templateLineCatalog } from "./constants/templateLines";
 export { vocabularyProfiles, vocabularyPromptMeta } from "./constants/vocabulary";
 export { createRandom, generateSeed } from "./logic/random";
 export type { Random } from "./logic/random";
+export { generateProphecy } from "./logic/generation";
 export { validateInput } from "./logic/validation";
