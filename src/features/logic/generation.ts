@@ -1,5 +1,5 @@
 import { lineMetaByKey, templateLineCatalog } from "../constants/templateLines";
-import { vocabularyProfiles } from "../constants/vocabulary";
+import { vocabularyProfiles, vocabularyPromptMeta } from "../constants/vocabulary";
 import { createRandom, generateSeed } from "./random";
 import type {
   LineVocabularyProfile,
@@ -11,6 +11,8 @@ import type {
   TemplateLineCandidate,
   TemplateLineCatalog,
   TemplateLineKey,
+  VocabularyCategory,
+  VocabularyPromptMeta,
   WeekNumber,
 } from "../types";
 
@@ -82,15 +84,22 @@ const vocabularyProfileById: Map<string, LineVocabularyProfile> = new Map(
   vocabularyProfiles.map((profile) => [profile.profileId, profile]),
 );
 
+/** 語彙とカテゴリからプロンプト用メタ情報を引くためのMap */
+const vocabularyPromptMetaByKey: Map<string, VocabularyPromptMeta> = new Map(
+  vocabularyPromptMeta.map((meta) => [buildVocabularyMetaKey(meta.word, meta.category), meta]),
+);
+
 /** 4週分の予言を生成する */
 export function generateProphecy(input: ProphecyInput, randomSalt: number): ProphecyResult {
   const random = createRandom(generateSeed(input), randomSalt);
   const selectedLines = selectAndRenderFourWeeks(input, random);
+  const weeks = selectedLines.map(toProphecyWeek);
+  const interpretationAxis = buildInterpretationAxis(selectedLines, input);
 
   return {
-    weeks: selectedLines.map(toProphecyWeek),
-    interpretationAxis: buildInterpretationAxis(selectedLines, input),
-    aiPrompt: "",
+    weeks,
+    interpretationAxis,
+    aiPrompt: buildAiPrompt(input, weeks, interpretationAxis),
   };
 }
 
@@ -375,15 +384,120 @@ function toProphecyWeek(selectedLine: SelectedLine): ProphecyWeek {
 }
 
 /** 選択済み行をもとに4週全体の解釈軸を作る */
-function buildInterpretationAxis(selectedLines: SelectedLine[], input: ProphecyInput): string {
+export function buildInterpretationAxis(selectedLines: readonly SelectedLine[], input: ProphecyInput): string {
   const weeklyAxes = selectedLines.map((selectedLine) =>
     [
-      `第${selectedLine.weekNumber}週は${selectedLine.lineMeta.role}として、${selectedLine.candidate.candidateMeta.reading}`,
-      `焦点は${selectedLine.profile.promptMeta.focus}、注意点は${selectedLine.profile.promptMeta.caution}`,
-      `行動は${selectedLine.lineMeta.actionLanding}へ落とす`,
+      `第${selectedLine.weekNumber}週は、${selectedLine.lineMeta.role}として読む`,
+      `候補ID ${selectedLine.candidate.candidateId}、profileId ${selectedLine.profile.profileId} を根拠にする`,
+      `候補文は、${selectedLine.candidate.candidateMeta.reading}として扱う`,
+      `詩中の語彙は、${buildVocabularyInterpretation(selectedLine.selectedTerms)}として扱う`,
+      `助言では${selectedLine.profile.promptMeta.focus}、${selectedLine.lineMeta.promptFocus}、${selectedLine.candidate.candidateMeta.promptFocus}を中心にする`,
+      `注意点は${selectedLine.profile.promptMeta.caution}、${selectedLine.lineMeta.caution}、${selectedLine.candidate.candidateMeta.caution}に従う`,
+      `行動は${buildActionFrame(selectedLine)}へ落とす`,
     ].join("。"),
   );
-  const monthlyAxis = `相談テーマ「${input.theme.trim()}」と今月の気分「${input.mood.trim()}」を、未来の断定ではなく小さな見直しの流れとして読む`;
+  const monthlyAxis = [
+    `全体として、${selectedLines.map((selectedLine) => selectedLine.lineMeta.axis).join("から")}`,
+    `という流れとして読む`,
+    `相談テーマ「${input.theme.trim()}」と今月の気分「${input.mood.trim()}」については、実際に選ばれた語彙と行候補だけを根拠に解釈する`,
+  ].join("");
 
   return [...weeklyAxes, monthlyAxis].join("\n");
+}
+
+/** 任意の生成AIへ貼り付けるための日本語プロンプトを作る */
+export function buildAiPrompt(
+  input: ProphecyInput,
+  weeks: readonly ProphecyWeek[],
+  interpretationAxis: string,
+): string {
+  return [
+    "あなたは日本語で、占い風の四行詩を現実的な助言に読み替えるアシスタントです。",
+    "以下のユーザー入力と四行詩を読み取り、相談テーマに関係する助言を返してください。",
+    "",
+    "【ユーザー入力】",
+    `名前: ${input.name.trim()}`,
+    `生年月日: ${formatBirthDate(input.birthDate)}`,
+    `性別: ${input.gender ?? "未入力"}`,
+    `相談テーマ: ${input.theme.trim()}`,
+    `今月の気分: ${input.mood.trim()}`,
+    "",
+    "【四行詩】",
+    formatWeeksForPrompt(weeks),
+    "",
+    "【四行詩の解釈軸】",
+    interpretationAxis,
+    "",
+    "【出力条件】",
+    "- 日本語で出力する",
+    "- 四行詩の内容を助言の根拠として扱う",
+    "- 四行詩の解釈軸を、読み替えの観点として扱う",
+    "- ユーザーの相談テーマに直接関係する助言を返す",
+    "- 不穏さを煽らず、次に取れる小さな行動へ落とし込む",
+    "- 占いや予言として断定せず、解釈の一例として提示する",
+    "- 医療、法律、金融など専門判断が必要な領域では、専門家への相談を促す",
+    "- 重要な判断には使わず、必要に応じて信頼できる人や専門家に相談する",
+    "- 相手の気持ち、未来の出来事、成功失敗を断定しない",
+    "",
+    "【出力形式】",
+    "1. 四行詩から読める今月の流れ",
+    "2. 相談テーマへの解釈",
+    "3. 今週からできる小さな行動",
+    "4. 注意したい思い込み",
+  ].join("\n");
+}
+
+/** 選択された語彙だけをプロンプト向けの読みへ変換する */
+function buildVocabularyInterpretation(selectedTerms: SelectedLineTerms): string {
+  const interpretations = [
+    buildTermInterpretation("symbol", selectedTerms.symbol),
+    buildTermInterpretation("place", selectedTerms.place),
+    buildTermInterpretation("object", selectedTerms.object),
+    buildTermInterpretation("action", selectedTerms.action),
+  ].filter((interpretation): interpretation is string => interpretation != null);
+
+  return interpretations.length > 0 ? interpretations.join("、") : "差し込まれた語彙なし";
+}
+
+/** 選択語彙1つを語彙メタ情報つきの説明へ変換する */
+function buildTermInterpretation(category: VocabularyCategory, word?: string): string | undefined {
+  if (word == null) {
+    return undefined;
+  }
+
+  const meta = vocabularyPromptMetaByKey.get(buildVocabularyMetaKey(word, category));
+  if (meta == null) {
+    return `「${word}」`;
+  }
+
+  return `「${word}」は${meta.reading}`;
+}
+
+/** 行動語、profile、行メタ情報から小さな行動の着地点を作る */
+function buildActionFrame(selectedLine: SelectedLine): string {
+  const actionMeta = selectedLine.selectedTerms.action
+    ? vocabularyPromptMetaByKey.get(buildVocabularyMetaKey(selectedLine.selectedTerms.action, "action"))
+    : undefined;
+  const actionHint = actionMeta?.actionHint ?? selectedLine.profile.promptMeta.actionFrame;
+
+  return `「${selectedLine.selectedTerms.action ?? "小さな行動"}」を${actionHint}の目安にして、${selectedLine.lineMeta.actionLanding}程度の小さな一手`;
+}
+
+/** 語彙メタ情報Mapのキーを作る */
+function buildVocabularyMetaKey(word: string, category: VocabularyCategory): string {
+  return `${category}:${word}`;
+}
+
+/** 週ごとの予言をプロンプト用の複数行へ整える */
+function formatWeeksForPrompt(weeks: readonly ProphecyWeek[]): string {
+  return weeks.map((week) => `第${week.weekNumber}週: ${week.line}`).join("\n");
+}
+
+/** Dateの年月日をユーザー向けの安定した文字列に変換する */
+function formatBirthDate(birthDate: Date): string {
+  const year = String(birthDate.getFullYear()).padStart(4, "0");
+  const month = String(birthDate.getMonth() + 1).padStart(2, "0");
+  const day = String(birthDate.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }

@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { templateLineCatalog } from "../constants/templateLines";
+import { lineMetaByKey, templateLineCatalog } from "../constants/templateLines";
+import { vocabularyProfiles } from "../constants/vocabulary";
 import { createRandom, generateSeed } from "./random";
-import { generateProphecy, renderTemplateLine, selectNextCandidate } from "./generation";
-import type { ProphecyInput, TemplateLineCandidate } from "../types";
+import {
+  buildAiPrompt,
+  buildInterpretationAxis,
+  generateProphecy,
+  renderTemplateLine,
+  selectNextCandidate,
+} from "./generation";
+import type { ProphecyInput, ProphecyWeek, SelectedLine, TemplateLineCandidate } from "../types";
 
 /** テストで使う有効な入力値 */
 const baseInput: ProphecyInput = {
@@ -43,6 +50,85 @@ describe("generateProphecy", () => {
 
   it("同じ入力とsaltでは同じ結果を返す", () => {
     expect(generateProphecy(baseInput, 3)).toEqual(generateProphecy({ ...baseInput }, 3));
+  });
+
+  it("解釈軸とAI用プロンプトを生成結果へ含める", () => {
+    const result = generateProphecy(baseInput, 0);
+
+    expect(result.interpretationAxis).toContain("候補ID");
+    expect(result.interpretationAxis).toContain("profileId");
+    expect(result.aiPrompt).toContain("【ユーザー入力】");
+    expect(result.aiPrompt).toContain("【四行詩】");
+    expect(result.aiPrompt).toContain("【四行詩の解釈軸】");
+    expect(result.aiPrompt).toContain(result.interpretationAxis);
+  });
+});
+
+describe("buildInterpretationAxis", () => {
+  it("実際に選ばれた候補、profile、語彙だけを根拠に解釈軸を作る", () => {
+    const selectedLine = createSelectedLine({
+      candidateId: "T01-L1-A",
+      profileId: "VP01",
+      selectedTerms: {
+        symbol: "紙",
+        place: "机の端",
+        object: "万年筆",
+        action: "書き留める",
+      },
+    });
+
+    const interpretationAxis = buildInterpretationAxis([selectedLine], baseInput);
+
+    expect(interpretationAxis).toContain("候補ID T01-L1-A");
+    expect(interpretationAxis).toContain("profileId VP01");
+    expect(interpretationAxis).toContain("「紙」はまだ書き換えられる記録");
+    expect(interpretationAxis).toContain("「机の端」は手元で扱える範囲");
+    expect(interpretationAxis).toContain("「万年筆」は言葉を残す道具");
+    expect(interpretationAxis).toContain("「書き留める」を短くメモする");
+    expect(interpretationAxis).not.toContain("「月」は感情の周期と揺れ");
+    expect(interpretationAxis).not.toContain("成功失敗を断定する");
+  });
+});
+
+describe("buildAiPrompt", () => {
+  it("必須セクション、ユーザー入力、4週分予言、出力形式を含める", () => {
+    const weeks = createPromptWeeks();
+    const aiPrompt = buildAiPrompt(baseInput, weeks, "第1週は、導入として読む");
+
+    expect(aiPrompt).toContain("【ユーザー入力】");
+    expect(aiPrompt).toContain("名前: ミナ");
+    expect(aiPrompt).toContain("生年月日: 1995-04-12");
+    expect(aiPrompt).toContain("性別: 女性");
+    expect(aiPrompt).toContain("相談テーマ: 仕事の進め方");
+    expect(aiPrompt).toContain("今月の気分: 落ち着いている");
+    expect(aiPrompt).toContain("【四行詩】");
+    for (const week of weeks) {
+      expect(aiPrompt).toContain(`第${week.weekNumber}週: ${week.line}`);
+    }
+    expect(aiPrompt).toContain("【四行詩の解釈軸】");
+    expect(aiPrompt).toContain("【出力形式】");
+    expect(aiPrompt).toContain("1. 四行詩から読める今月の流れ");
+    expect(aiPrompt).toContain("4. 注意したい思い込み");
+  });
+
+  it("性別未入力時は未入力と表示し、安全制約文言を含める", () => {
+    const aiPrompt = buildAiPrompt(
+      {
+        ...baseInput,
+        gender: undefined,
+      },
+      createPromptWeeks(),
+      "第1週は、導入として読む",
+    );
+
+    expect(aiPrompt).toContain("性別: 未入力");
+    expect(aiPrompt).toContain("占いや予言として断定せず、解釈の一例として提示する");
+    expect(aiPrompt).toContain("医療、法律、金融など専門判断が必要な領域では、専門家への相談を促す");
+    expect(aiPrompt).toContain("重要な判断には使わず、必要に応じて信頼できる人や専門家に相談する");
+    expect(aiPrompt).toContain("相手の気持ち、未来の出来事、成功失敗を断定しない");
+    expect(aiPrompt).not.toContain("相手の気持ちを断定する");
+    expect(aiPrompt).not.toContain("未来を断定する");
+    expect(aiPrompt).not.toContain("成功失敗を断定する");
   });
 });
 
@@ -176,5 +262,57 @@ function createCatalogForLine2(line2Candidates: TemplateLineCandidate[]) {
   return {
     ...templateLineCatalog,
     line2: line2Candidates,
+  };
+}
+
+/** 解釈軸テスト用の選択済み行を作る */
+function createSelectedLine(options: {
+  /** 候補ID */
+  candidateId: string;
+  /** 語彙プロファイルID */
+  profileId: string;
+  /** 実際に選ばれた語彙 */
+  selectedTerms: SelectedLine["selectedTerms"];
+}): SelectedLine {
+  const candidate = templateLineCatalog.line1.find((item) => item.candidateId === options.candidateId);
+  const profile = vocabularyProfiles.find((item) => item.profileId === options.profileId);
+
+  if (candidate == null || profile == null) {
+    throw new Error("テスト用の候補またはprofileが見つかりません");
+  }
+
+  return {
+    weekNumber: 1,
+    candidate,
+    lineMeta: lineMetaByKey.line1,
+    profile,
+    selectedTerms: options.selectedTerms,
+    renderedLine: "ミナの名を、薄いインクがまだ覚えている",
+  };
+}
+
+/** AI用プロンプトテスト用の4週分予言を作る */
+function createPromptWeeks(): ProphecyWeek[] {
+  return [
+    createPromptWeek(1, "ミナの紙面に短い音が落ちる"),
+    createPromptWeek(2, "仕事の進め方は一度だけ行頭へ戻される"),
+    createPromptWeek(3, "落ち着いている文字は、静かな記録になる"),
+    createPromptWeek(4, "最後の罫線を越える前に、手元の言葉を書き留めるとよい"),
+  ];
+}
+
+/** AI用プロンプトテスト用の週ごとの予言を作る */
+function createPromptWeek(weekNumber: ProphecyWeek["weekNumber"], line: string): ProphecyWeek {
+  return {
+    weekNumber,
+    line,
+    candidateId: `TEST-L${weekNumber}-A`,
+    profileId: "VP01",
+    selectedTerms: {
+      symbol: "紙",
+      place: "机の端",
+      object: "万年筆",
+      action: "書き留める",
+    },
   };
 }
