@@ -74,6 +74,9 @@ const affinityRules = [
   },
 ] as const satisfies readonly AffinityRule[];
 
+/** 参照切れフォールバックで無制限な全候補選択を避けるための上限 */
+const fallbackCandidateLimit = 3;
+
 /** profileIdから語彙プロファイルを引くためのMap */
 const vocabularyProfileById: Map<string, LineVocabularyProfile> = new Map(
   vocabularyProfiles.map((profile) => [profile.profileId, profile]),
@@ -116,7 +119,9 @@ export function selectNextCandidate(
     .map((ref) => findCandidate(catalog, ref.lineKey, ref.candidateId))
     .filter((candidate): candidate is TemplateLineCandidate => candidate != null);
   const candidates =
-    referencedCandidates.length > 0 ? referencedCandidates : buildFallbackCandidates(catalog, previousCandidate, lineKey);
+    referencedCandidates.length > 0
+      ? referencedCandidates
+      : buildFallbackCandidates(catalog, previousCandidate, lineKey, input);
 
   return pickHighestScore(candidates, {
     random,
@@ -292,6 +297,7 @@ function buildFallbackCandidates(
   catalog: TemplateLineCatalog,
   previousCandidate: TemplateLineCandidate,
   lineKey: TemplateLineKey,
+  input: ProphecyInput,
 ): TemplateLineCandidate[] {
   const lineCandidates = catalog[lineKey];
   const sameProfileCandidates = lineCandidates.filter((candidate) => candidate.profileId === previousCandidate.profileId);
@@ -300,11 +306,56 @@ function buildFallbackCandidates(
     return sameProfileCandidates;
   }
 
+  const relatedProfileIds = getRelatedProfileIds(previousCandidate.profileId);
+  const relatedProfileCandidates = lineCandidates.filter((candidate) => relatedProfileIds.has(candidate.profileId));
+
+  if (relatedProfileCandidates.length > 0) {
+    return relatedProfileCandidates;
+  }
+
   const sameFocusCandidates = lineCandidates.filter(
     (candidate) => candidate.candidateMeta.promptFocus === previousCandidate.candidateMeta.promptFocus,
   );
 
-  return sameFocusCandidates.length > 0 ? sameFocusCandidates : lineCandidates;
+  if (sameFocusCandidates.length > 0) {
+    return sameFocusCandidates;
+  }
+
+  const inputAffinityCandidates = lineCandidates.filter((candidate) => calculateProfileAffinity(candidate.profileId, input) > 0);
+
+  if (inputAffinityCandidates.length > 0) {
+    return inputAffinityCandidates;
+  }
+
+  return pickTopFallbackCandidates(lineCandidates, input, previousCandidate);
+}
+
+/** 同じ入力分類に属する語彙プロファイルIDを集める */
+function getRelatedProfileIds(profileId: string): Set<string> {
+  return affinityRules.reduce((profileIds, rule) => {
+    if (rule.profileIds.some((ruleProfileId) => ruleProfileId === profileId)) {
+      for (const ruleProfileId of rule.profileIds) {
+        profileIds.add(ruleProfileId);
+      }
+    }
+
+    return profileIds;
+  }, new Set<string>());
+}
+
+/** 最後のフォールバックでもスコア上位だけに絞り、全候補へ広げない */
+function pickTopFallbackCandidates(
+  lineCandidates: readonly TemplateLineCandidate[],
+  input: ProphecyInput,
+  previousCandidate: TemplateLineCandidate,
+): TemplateLineCandidate[] {
+  return [...lineCandidates]
+    .sort(
+      (firstCandidate, secondCandidate) =>
+        calculateCandidateScore(secondCandidate, input, previousCandidate) -
+        calculateCandidateScore(firstCandidate, input, previousCandidate),
+    )
+    .slice(0, fallbackCandidateLimit);
 }
 
 /** profileIdが存在しない場合はデフォルトprofileへフォールバックする */

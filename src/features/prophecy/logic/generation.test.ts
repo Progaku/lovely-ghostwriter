@@ -61,6 +61,60 @@ describe("selectNextCandidate", () => {
       true,
     );
   });
+
+  it("参照切れ時は相談テーマに近い候補へ絞り、無関係な同週候補を選ばない", () => {
+    const brokenPreviousCandidate = createCandidate({
+      candidateId: "TEST-L1-BROKEN",
+      lineKey: "line1",
+      profileId: "VP99",
+      promptFocus: "存在しない焦点",
+      nextCandidates: [{ lineKey: "line2", candidateId: "missing-candidate" }],
+    });
+    const catalog = createCatalogForLine2([
+      createCandidate({
+        candidateId: "TEST-L2-UNRELATED",
+        lineKey: "line2",
+        profileId: "VP06",
+        promptFocus: "選ぶ前の条件確認",
+      }),
+      createCandidate({
+        candidateId: "TEST-L2-WORK",
+        lineKey: "line2",
+        profileId: "VP03",
+        promptFocus: "手順とリズム",
+      }),
+    ]);
+
+    const selectedCandidate = selectNextCandidate(brokenPreviousCandidate, "line2", baseInput, () => 0.99, catalog);
+
+    expect(selectedCandidate.candidateId).toBe("TEST-L2-WORK");
+  });
+
+  it("近い候補が見つからない参照切れ時も全候補へ広げない", () => {
+    const brokenPreviousCandidate = createCandidate({
+      candidateId: "TEST-L1-UNKNOWN",
+      lineKey: "line1",
+      profileId: "VP99",
+      promptFocus: "存在しない焦点",
+      nextCandidates: [{ lineKey: "line2", candidateId: "missing-candidate" }],
+    });
+    const neutralInput: ProphecyInput = {
+      ...baseInput,
+      theme: "まだ言葉にならないこと",
+      mood: "静か",
+    };
+    const catalog = createCatalogForLine2([
+      createCandidate({ candidateId: "TEST-L2-A", lineKey: "line2", profileId: "VP40", promptFocus: "A" }),
+      createCandidate({ candidateId: "TEST-L2-B", lineKey: "line2", profileId: "VP41", promptFocus: "B" }),
+      createCandidate({ candidateId: "TEST-L2-C", lineKey: "line2", profileId: "VP42", promptFocus: "C" }),
+      createCandidate({ candidateId: "TEST-L2-D", lineKey: "line2", profileId: "VP43", promptFocus: "D" }),
+      createCandidate({ candidateId: "TEST-L2-E", lineKey: "line2", profileId: "VP44", promptFocus: "E" }),
+    ]);
+
+    const selectedCandidate = selectNextCandidate(brokenPreviousCandidate, "line2", neutralInput, () => 0.99, catalog);
+
+    expect(selectedCandidate.candidateId).toBe("TEST-L2-C");
+  });
 });
 
 describe("renderTemplateLine", () => {
@@ -89,3 +143,38 @@ describe("renderTemplateLine", () => {
     ).toBe("ミナ の仕事の進め方に紙が残り、見直す");
   });
 });
+
+/** テスト用候補を最小限の指定から組み立てる */
+function createCandidate(options: {
+  /** 候補ID */
+  candidateId: string;
+  /** 候補が属する行キー */
+  lineKey: TemplateLineCandidate["lineKey"];
+  /** 語彙プロファイルID */
+  profileId: string;
+  /** 候補の焦点 */
+  promptFocus: string;
+  /** 次候補参照 */
+  nextCandidates?: TemplateLineCandidate["nextCandidates"];
+}): TemplateLineCandidate {
+  return {
+    candidateId: options.candidateId,
+    lineKey: options.lineKey,
+    text: "{name}の{theme}に{symbol}が残り、{action}",
+    profileId: options.profileId,
+    candidateMeta: {
+      reading: `${options.promptFocus}を読む`,
+      promptFocus: options.promptFocus,
+      caution: "断定しない",
+    },
+    nextCandidates: options.nextCandidates,
+  };
+}
+
+/** line2の差し替えだけを行うテスト用カタログを作る */
+function createCatalogForLine2(line2Candidates: TemplateLineCandidate[]) {
+  return {
+    ...templateLineCatalog,
+    line2: line2Candidates,
+  };
+}
