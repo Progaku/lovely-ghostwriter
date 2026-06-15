@@ -220,7 +220,6 @@ export type CopyStatus =
 | `vocabularyProfiles` | profileIdごとの象徴語、場所語、道具語、行動語、promptMeta |
 | `vocabularyPromptMeta` | 語彙ごとのreading、promptFocus、caution、actionHint |
 | `moodSuggestions` | 今月の気分候補 |
-| `avoidExpressions` | 禁止または回避する断定表現リスト |
 | `aiPromptTemplate` | 共通AI用プロンプト雛形 |
 
 テンプレートは4行セットではなく、必ず行候補カタログとして保持する。`line1` は第1週、`line2` は第2週、`line3` は第3週、`line4` は第4週に固定し、行番号の入れ替えはしない。
@@ -284,16 +283,6 @@ function selectNextCandidate(
     : buildFallbackCandidates(previous, lineKey, input);
 
   return pickHighestScore(candidates, { input, lineKey, previous, random });
-}
-
-function scoreCandidate(candidate: TemplateLineCandidate, context: ScoreContext): number {
-  let score = 0;
-  score += scoreProfileConnection(context.previous?.profileId, candidate.profileId);
-  score += scoreLineAxisFlow(context.previousLineMeta, lineMetaByKey[candidate.lineKey]);
-  score += scoreInputAffinity(candidate, context.input.theme, context.input.mood);
-  score += scoreProfileVariety(candidate.profileId, context.selectedProfiles);
-  score -= scoreAvoidExpressions(candidate.text);
-  return score;
 }
 
 function selectVocabulary(

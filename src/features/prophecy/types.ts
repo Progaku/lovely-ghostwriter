@@ -32,6 +32,8 @@ export type SelectedLineTerms = {
   action?: string;
   /** 文体やAI用プロンプトの焦点を補助する調子のヒント */
   toneHint?: string;
+  /** 助言へ読み替える際の微細なニュアンス */
+  adviceNuance?: string;
 };
 
 /** 生成済みの週ごとの予言行と、その生成根拠になる候補情報 */
@@ -114,6 +116,8 @@ export type PromptMeta = {
 export type LineVocabularyProfile = {
   /** 語彙プロファイルを一意に識別するID */
   profileId: string;
+  /** 語彙プロファイルの主な用途 */
+  purpose: string;
   /** 象徴的な名詞の候補 */
   symbols: string[];
   /** 場所や場面を表す語の候補 */
@@ -122,12 +126,18 @@ export type LineVocabularyProfile = {
   objects: string[];
   /** 行動や変化を表す語の候補 */
   actions: string[];
+  /** 文体や行ごとの気配を補助するヒント */
+  toneHints: string[];
+  /** 助言へ読み替える際のニュアンス候補 */
+  adviceNuances: string[];
   /** 語彙プロファイル単位のAI用プロンプト補助情報 */
   promptMeta: {
     /** AI用プロンプトで重視させる焦点 */
     focus: string;
     /** 断定や不安の煽りを避けるための注意点 */
     caution: string;
+    /** 助言を小さな行動へ落とすための枠組み */
+    actionFrame: string;
   };
 };
 
@@ -139,8 +149,12 @@ export type TemplateLineMeta = {
   weekNumber: WeekNumber;
   /** 4週構成の中でその行が担う役割 */
   role: string;
+  /** AI用プロンプトで週ごとに問いかける観点 */
+  promptQuestion: string;
   /** 解釈軸を組み立てるための観点 */
   axis: string;
+  /** 解釈軸で自然に反映する入力項目 */
+  inputUse: Array<keyof ProphecyInput>;
   /** AI用プロンプトで重視させる焦点 */
   promptFocus: string;
   /** 断定や不安の煽りを避けるための注意点 */
@@ -149,8 +163,24 @@ export type TemplateLineMeta = {
   actionLanding: string;
 };
 
+/** 語彙メタ情報のカテゴリ */
+export type VocabularyCategory = "symbol" | "place" | "object" | "action";
+
 /** 語彙に紐づくAI用プロンプト補助情報 */
-export type VocabularyPromptMeta = PromptMeta;
+export type VocabularyPromptMeta = {
+  /** メタ情報が対応する語彙 */
+  word: string;
+  /** 語彙が属する差し込みカテゴリ */
+  category: VocabularyCategory;
+  /** 詩的表現を助言へ変換するための読み取り方 */
+  reading: string;
+  /** AI用プロンプトで重視させる焦点 */
+  promptFocus: string;
+  /** 断定や不安の煽りを避けるための注意点 */
+  caution: string;
+  /** ユーザーが次に取れる小さな行動の方向性 */
+  actionHint?: string;
+};
 
 /** 候補、メタ情報、語彙、描画済み本文をまとめた選択済みの1行 */
 export type SelectedLine = {
