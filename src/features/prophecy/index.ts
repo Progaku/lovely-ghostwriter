@@ -33,4 +33,6 @@ export type {
 export { genderOptions, inputMaxLengths, moodSuggestions } from "./constants/input";
 export { lineMetaByKey, templateLineCatalog } from "./constants/templateLines";
 export { vocabularyProfiles, vocabularyPromptMeta } from "./constants/vocabulary";
+export { createRandom, generateSeed } from "./logic/random";
+export type { Random } from "./logic/random";
 export { validateInput } from "./logic/validation";
