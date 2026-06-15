@@ -211,7 +211,7 @@ export type CopyStatus =
 
 ## 7. 定数・テンプレートデータ設計
 
-定数は `src/features/prophecy/constants` 配下に分割する。
+定数は `src/features/constants` 配下に分割する。
 
 | 定数 | 内容 |
 | --- | --- |
