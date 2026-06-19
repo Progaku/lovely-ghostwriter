@@ -35,6 +35,8 @@ export { lineMetaByKey, templateLineCatalog } from "./constants/templateLines";
 export { vocabularyProfiles, vocabularyPromptMeta } from "./constants/vocabulary";
 export { ProphecyForm } from "./components/ProphecyForm";
 export type { ProphecyFormProps } from "./components/ProphecyForm";
+export { MoodSuggestions } from "./components/MoodSuggestions";
+export type { MoodSuggestionsProps } from "./components/MoodSuggestions";
 export { createRandom, generateSeed } from "./logic/random";
 export type { Random } from "./logic/random";
 export { buildAiPrompt, buildInterpretationAxis, generateProphecy } from "./logic/generation";
