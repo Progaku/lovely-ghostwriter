@@ -1,18 +1,17 @@
 import {
   Button,
-  Chip,
   FormControl,
   FormHelperText,
   InputLabel,
   MenuItem,
   Select,
   TextField,
-  Typography,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
 import { genderOptions, inputMaxLengths, moodSuggestions } from "../constants/input";
 import type { Gender, ValidationErrors } from "../types";
 import type { ValidatableProphecyInput } from "../logic/validation";
+import { MoodSuggestions } from "./MoodSuggestions";
 
 /** 予言入力フォームに渡す表示値と操作イベント */
 export type ProphecyFormProps = {
@@ -151,22 +150,11 @@ export function ProphecyForm({
           minRows={2}
         />
 
-        <div className="space-y-2">
-          <Typography component="p" variant="body2">
-            気分候補
-          </Typography>
-          <div className="flex flex-wrap gap-2">
-            {moodSuggestions.map((suggestion) => (
-              <Chip
-                key={suggestion}
-                label={suggestion}
-                onClick={() => handleMoodSuggestionSelect(suggestion)}
-                variant={value.mood === suggestion ? "filled" : "outlined"}
-                color={value.mood === suggestion ? "primary" : "default"}
-              />
-            ))}
-          </div>
-        </div>
+        <MoodSuggestions
+          suggestions={moodSuggestions}
+          selectedMood={value.mood}
+          onSelect={handleMoodSuggestionSelect}
+        />
       </div>
 
       <div className="flex justify-end">
