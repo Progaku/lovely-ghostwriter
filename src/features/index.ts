@@ -33,6 +33,8 @@ export type {
 export { genderOptions, inputMaxLengths, moodSuggestions } from "./constants/input";
 export { lineMetaByKey, templateLineCatalog } from "./constants/templateLines";
 export { vocabularyProfiles, vocabularyPromptMeta } from "./constants/vocabulary";
+export { ProphecyForm } from "./components/ProphecyForm";
+export type { ProphecyFormProps } from "./components/ProphecyForm";
 export { createRandom, generateSeed } from "./logic/random";
 export type { Random } from "./logic/random";
 export { buildAiPrompt, buildInterpretationAxis, generateProphecy } from "./logic/generation";
