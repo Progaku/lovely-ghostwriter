@@ -84,6 +84,10 @@ function validateBirthDate(birthDate?: Date | null): string | undefined {
     return "生年月日を入力してください";
   }
 
+  if (Number.isNaN(birthDate.getTime())) {
+    return "正しい日付を入力してください";
+  }
+
   if (birthDate.getTime() >= getTodayInJst().getTime()) {
     return "正しい日付を入力してください";
   }
@@ -93,6 +97,10 @@ function validateBirthDate(birthDate?: Date | null): string | undefined {
 
 /** 性別が許可された選択値かどうかを検証する */
 function validateGender(gender?: string): string | undefined {
+  if (gender == null || gender === "") {
+    return undefined;
+  }
+
   if (!genderOptions.some((genderOption) => genderOption === gender)) {
     return "性別の選択値が正しくありません";
   }

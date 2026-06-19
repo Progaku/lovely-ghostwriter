@@ -81,14 +81,24 @@ describe("validateInput", () => {
     expect(result.errors.gender).toBe("性別の選択値が正しくありません");
   });
 
-  it("性別が未入力をエラーにする", () => {
+  it("性別が未入力でも成功する", () => {
     const result = validateInput({
       ...validInput,
       gender: undefined,
     });
 
+    expect(result.isValid).toBe(true);
+    expect(result.errors.gender).toBeUndefined();
+  });
+
+  it("不正な日付をエラーにする", () => {
+    const result = validateInput({
+      ...validInput,
+      birthDate: new Date(Number.NaN),
+    });
+
     expect(result.isValid).toBe(false);
-    expect(result.errors.gender).toBe("性別の選択値が正しくありません");
+    expect(result.errors.birthDate).toBe("正しい日付を入力してください");
   });
 });
 
