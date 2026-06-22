@@ -78,8 +78,8 @@ export function ProphecyForm({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
+    <div className="min-w-0 space-y-5">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <TextField
           label="名前"
           value={value.name}
@@ -157,13 +157,14 @@ export function ProphecyForm({
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-stretch sm:justify-end">
         <Button
           type="button"
           variant="contained"
           size="large"
           disabled={!canGenerate}
           onClick={handleGenerateClick}
+          className="min-h-12 w-full whitespace-normal break-words sm:w-auto"
         >
           予言を生成する
         </Button>

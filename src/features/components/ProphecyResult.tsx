@@ -19,7 +19,7 @@ export type ProphecyResultProps = {
 export function ProphecyResult({ result, copyStatus, onCopy, onRegenerate }: ProphecyResultProps) {
   return (
     <section
-      className="space-y-6 rounded-md border border-stone-300 bg-stone-50/80 p-5 shadow-inner sm:p-6"
+      className="min-w-0 space-y-6 rounded-md border border-[#cbbf9e] bg-[#fff8e7]/80 p-4 shadow-inner sm:p-6"
       aria-labelledby="prophecy-result-heading"
     >
       <div className="space-y-2">
@@ -39,8 +39,14 @@ export function ProphecyResult({ result, copyStatus, onCopy, onRegenerate }: Pro
 
       <AiPromptPanel aiPrompt={result.aiPrompt} copyStatus={copyStatus} onCopy={onCopy} />
 
-      <div className="flex justify-end pt-2">
-        <Button type="button" variant="outlined" size="large" onClick={onRegenerate}>
+      <div className="flex justify-stretch pt-2 sm:justify-end">
+        <Button
+          type="button"
+          variant="outlined"
+          size="large"
+          onClick={onRegenerate}
+          className="min-h-12 w-full whitespace-normal break-words sm:w-auto"
+        >
           再生成する
         </Button>
       </div>
