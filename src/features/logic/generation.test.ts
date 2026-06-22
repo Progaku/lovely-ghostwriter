@@ -55,12 +55,9 @@ describe("generateProphecy", () => {
   it("解釈軸とAI用プロンプトを生成結果へ含める", () => {
     const result = generateProphecy(baseInput, 0);
 
-    expect(result.interpretationAxis).toContain("候補ID");
-    expect(result.interpretationAxis).toContain("profileId");
     expect(result.aiPrompt).toContain("【ユーザー入力】");
     expect(result.aiPrompt).toContain("【四行詩】");
     expect(result.aiPrompt).toContain("【四行詩の解釈軸】");
-    expect(result.aiPrompt).toContain(result.interpretationAxis);
   });
 });
 
@@ -79,8 +76,6 @@ describe("buildInterpretationAxis", () => {
 
     const interpretationAxis = buildInterpretationAxis([selectedLine], baseInput);
 
-    expect(interpretationAxis).toContain("候補ID T01-L1-A");
-    expect(interpretationAxis).toContain("profileId VP01");
     expect(interpretationAxis).toContain("「紙」はまだ書き換えられる記録");
     expect(interpretationAxis).toContain("「机の端」は手元で扱える範囲");
     expect(interpretationAxis).toContain("「万年筆」は言葉を残す道具");

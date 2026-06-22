@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Alert, CssBaseline, Paper, ThemeProvider, Typography } from "@mui/material";
+import { Alert, CssBaseline, Paper, Snackbar, ThemeProvider, Typography } from "@mui/material";
 import { ProphecyResult } from "../features/components/ProphecyResult";
 import { genderOptions, generateProphecy, ProphecyForm, validateInput } from "../features";
 import type {
+  CopyStatus,
   Gender,
   ProphecyInput,
   ProphecyResult as ProphecyResultData,
@@ -24,6 +25,7 @@ export function App() {
   const [input, setInput] = useState<ValidatableProphecyInput>(initialInput);
   const [result, setResult] = useState<ProphecyResultData | null>(null);
   const [randomSalt, setRandomSalt] = useState(0);
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>({ state: "idle" });
   const validation = useMemo(() => validateInput(input), [input]);
 
   function handleGenerate(): void {
@@ -36,8 +38,30 @@ export function App() {
     setResult(generateProphecy(toProphecyInput(input), nextRandomSalt));
   }
 
+  /** 生成済みAI用プロンプトをクリップボードへコピーする */
+  async function handleCopyAiPrompt(): Promise<void> {
+    if (result == null) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(result.aiPrompt);
+      setCopyStatus({ state: "success", message: "AI用プロンプトをコピーしました" });
+    } catch {
+      setCopyStatus({
+        state: "error",
+        message: "コピーできませんでした。本文を選択して手動でコピーしてください",
+      });
+    }
+  }
+
   function handleRegenerate(): void {
     handleGenerate();
+  }
+
+  /** コピー結果の一時通知を閉じる */
+  function handleCopySnackbarClose(): void {
+    setCopyStatus({ state: "idle" });
   }
 
   return (
@@ -66,8 +90,22 @@ export function App() {
             onGenerate={handleGenerate}
           />
 
-          {result != null ? <ProphecyResult result={result} onRegenerate={handleRegenerate} /> : null}
+          {result != null ? (
+            <ProphecyResult
+              result={result}
+              copyStatus={copyStatus}
+              onCopy={handleCopyAiPrompt}
+              onRegenerate={handleRegenerate}
+            />
+          ) : null}
         </Paper>
+
+        <Snackbar
+          open={copyStatus.state !== "idle"}
+          autoHideDuration={4000}
+          message={copyStatus.state === "idle" ? undefined : copyStatus.message}
+          onClose={handleCopySnackbarClose}
+        />
       </main>
     </ThemeProvider>
   );

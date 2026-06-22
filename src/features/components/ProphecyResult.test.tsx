@@ -44,6 +44,8 @@ const result = {
 function renderProphecyResult(props?: Partial<ProphecyResultProps>) {
   const defaultProps: ProphecyResultProps = {
     result,
+    copyStatus: { state: "idle" },
+    onCopy: vi.fn(),
     onRegenerate: vi.fn(),
   };
   const mergedProps = {
@@ -70,7 +72,19 @@ describe("ProphecyResult", () => {
     expect(screen.getByText("机の端に残る印が、急がない順番を知らせる")).toBeInTheDocument();
     expect(screen.getByText("薄い紙の裏で、迷いは小さな灯へ折り返す")).toBeInTheDocument();
     expect(screen.getByText("最後の引き出しには、次の一歩だけが残される")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AI用プロンプト" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "AI用プロンプト本文" })).toHaveValue("AI用プロンプト");
+    expect(screen.getByRole("button", { name: "AI用プロンプトをコピーする" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "再生成する" })).toBeInTheDocument();
+  });
+
+  it("AI用プロンプトのコピーボタンクリックを親へ通知する", async () => {
+    const user = userEvent.setup();
+    const props = renderProphecyResult();
+
+    await user.click(screen.getByRole("button", { name: "AI用プロンプトをコピーする" }));
+
+    expect(props.onCopy).toHaveBeenCalledTimes(1);
   });
 
   it("再生成ボタンのクリックを親へ通知する", async () => {

@@ -37,6 +37,8 @@ export { ProphecyForm } from "./components/ProphecyForm";
 export type { ProphecyFormProps } from "./components/ProphecyForm";
 export { MoodSuggestions } from "./components/MoodSuggestions";
 export type { MoodSuggestionsProps } from "./components/MoodSuggestions";
+export { AiPromptPanel } from "./components/AiPromptPanel";
+export type { AiPromptPanelProps } from "./components/AiPromptPanel";
 export { createRandom, generateSeed } from "./logic/random";
 export type { Random } from "./logic/random";
 export { buildAiPrompt, buildInterpretationAxis, generateProphecy } from "./logic/generation";
