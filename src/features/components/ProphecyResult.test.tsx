@@ -61,14 +61,11 @@ afterEach(() => {
 });
 
 describe("ProphecyResult", () => {
-  it("4週分の見出しと予言本文、再生成ボタンを表示する", () => {
+  it("4週分の予言本文と再生成ボタンを表示する", () => {
     renderProphecyResult();
 
-    expect(screen.getByRole("heading", { name: "四週の予言" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第1週" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第2週" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第3週" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第4週" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "四行詩" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "4週分の予言" })).toBeInTheDocument();
     expect(screen.getByText("閉じた窓辺で、古い鍵が静かに向きを変える")).toBeInTheDocument();
     expect(screen.getByText("机の端に残る印が、急がない順番を知らせる")).toBeInTheDocument();
     expect(screen.getByText("薄い紙の裏で、迷いは小さな灯へ折り返す")).toBeInTheDocument();

@@ -12,7 +12,7 @@ describe("App", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { name: "ラブリーゴーストライター風 予言紙" }),
+      screen.getByRole("heading", { name: "ラブリーゴーストライター" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/非公式ファン作品です/)).toBeInTheDocument();
     expect(screen.getByText(/重要な判断には使用しないでください/)).toBeInTheDocument();
@@ -22,7 +22,7 @@ describe("App", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.queryByRole("heading", { name: "四週の予言" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "四行詩" })).not.toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/名前/), "ミナ");
     await user.type(screen.getByLabelText(/生年月日/), "1995-04-12");
@@ -30,11 +30,8 @@ describe("App", () => {
     await user.type(screen.getByLabelText(/今月の気分/), "落ち着いている");
     await user.click(screen.getByRole("button", { name: "予言を生成する" }));
 
-    expect(screen.getByRole("heading", { name: "四週の予言" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第1週" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第2週" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第3週" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "第4週" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "四行詩" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "4週分の予言" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "再生成する" })).toBeInTheDocument();
   });
 });
