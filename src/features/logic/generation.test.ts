@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { prophecyPlaceholderTerms } from "../constants/placeholderTerms";
 import { lineMetaByKey, templateLineCatalog } from "../constants/templateLines";
 import { vocabularyProfiles } from "../constants/vocabulary";
 import { createRandom, generateSeed } from "./random";
@@ -43,9 +44,21 @@ describe("generateProphecy", () => {
           place: expect.any(String),
           object: expect.any(String),
           action: expect.any(String),
+          name: expect.any(String),
+          theme: expect.any(String),
+          mood: expect.any(String),
         }),
       );
     }
+  });
+
+  it("予言本文の{name}、{theme}、{mood}にはユーザー入力をそのまま出さない", () => {
+    const result = generateProphecy(baseInput, 2);
+    const lines = result.weeks.map((week) => week.line).join("\n");
+
+    expect(lines).not.toContain(baseInput.name);
+    expect(lines).not.toContain(baseInput.theme);
+    expect(lines).not.toContain(baseInput.mood);
   });
 
   it("同じ入力とsaltでは同じ結果を返す", () => {
@@ -216,12 +229,32 @@ describe("renderTemplateLine", () => {
       renderTemplateLine(
         candidate,
         {
+          name: "迷い子",
+          theme: "閉じかけた扉",
+          mood: "静かなざわめき",
           symbol: "紙",
           action: "見直す",
         },
-        baseInput,
       ),
-    ).toBe("ミナ の仕事の進め方に紙が残り、見直す");
+    ).toBe("迷い子 の閉じかけた扉に紙が残り、見直す");
+  });
+
+  it("本文用語が未指定でもユーザー入力ではなく既定の用意済み語で置換する", () => {
+    const candidate: TemplateLineCandidate = {
+      candidateId: "TEST-L1-B",
+      lineKey: "line1",
+      text: "{name}の{theme}に{mood}が残る",
+      profileId: "VP01",
+      candidateMeta: {
+        reading: "テスト用の読み",
+        promptFocus: "テスト用の焦点",
+        caution: "断定しない",
+      },
+    };
+
+    expect(renderTemplateLine(candidate, {})).toBe(
+      `${prophecyPlaceholderTerms.names[0]}の${prophecyPlaceholderTerms.themes[0]}に${prophecyPlaceholderTerms.moods[0]}が残る`,
+    );
   });
 });
 

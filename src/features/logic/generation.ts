@@ -1,4 +1,5 @@
 import { lineMetaByKey, templateLineCatalog } from "../constants/templateLines";
+import { prophecyPlaceholderTerms } from "../constants/placeholderTerms";
 import { vocabularyProfiles, vocabularyPromptMeta } from "../constants/vocabulary";
 import { createRandom, generateSeed } from "./random";
 import type {
@@ -142,12 +143,11 @@ export function selectNextCandidate(
 export function renderTemplateLine(
   candidate: TemplateLineCandidate,
   selectedTerms: SelectedLineTerms,
-  input: ProphecyInput,
 ): string {
   return candidate.text
-    .replace(/\{name\}/g, input.name.trim())
-    .replace(/\{theme\}/g, input.theme.trim())
-    .replace(/\{mood\}/g, input.mood.trim())
+    .replace(/\{name\}/g, selectedTerms.name ?? prophecyPlaceholderTerms.names[0])
+    .replace(/\{theme\}/g, selectedTerms.theme ?? prophecyPlaceholderTerms.themes[0])
+    .replace(/\{mood\}/g, selectedTerms.mood ?? prophecyPlaceholderTerms.moods[0])
     .replace(/\{week\}/g, String(weekNumberByLineKey[candidate.lineKey]))
     .replace(/\{symbol\}/g, selectedTerms.symbol ?? "")
     .replace(/\{place\}/g, selectedTerms.place ?? "")
@@ -172,7 +172,7 @@ function selectAndRenderFourWeeks(input: ProphecyInput, random: () => number): S
         : selectNextCandidate(previousCandidate, lineKey, input, random);
     const profile = getVocabularyProfile(candidate.profileId);
     const selectedTerms = selectVocabulary(profile, input, random);
-    const renderedLine = renderTemplateLine(candidate, selectedTerms, input);
+    const renderedLine = renderTemplateLine(candidate, selectedTerms);
 
     selectedLines.push({
       weekNumber: weekNumberByLineKey[lineKey],
@@ -191,6 +191,7 @@ function selectAndRenderFourWeeks(input: ProphecyInput, random: () => number): S
 /** 語彙プロファイルから各差し込み語を選ぶ */
 function selectVocabulary(profile: LineVocabularyProfile, input: ProphecyInput, random: () => number): SelectedLineTerms {
   return {
+    ...selectPlaceholderTerms(random),
     symbol: pickTerm(profile.symbols, input, random),
     place: pickTerm(profile.places, input, random),
     object: pickTerm(profile.objects, input, random),
@@ -198,6 +199,24 @@ function selectVocabulary(profile: LineVocabularyProfile, input: ProphecyInput, 
     toneHint: pickTerm(profile.toneHints, input, random),
     adviceNuance: pickTerm(profile.adviceNuances, input, random),
   };
+}
+
+/** 予言本文に出す入力由来風の語を、ユーザー入力に依存しない候補から選ぶ */
+function selectPlaceholderTerms(random: () => number): Pick<SelectedLineTerms, "name" | "theme" | "mood"> {
+  return {
+    name: pickRandomTerm(prophecyPlaceholderTerms.names, random),
+    theme: pickRandomTerm(prophecyPlaceholderTerms.themes, random),
+    mood: pickRandomTerm(prophecyPlaceholderTerms.moods, random),
+  };
+}
+
+/** 候補配列から乱数で1語を選ぶ */
+function pickRandomTerm<T>(terms: readonly T[], random: () => number): T {
+  if (terms.length === 0) {
+    throw new Error("選択可能な差し込み語がありません");
+  }
+
+  return terms[Math.floor(random() * terms.length)];
 }
 
 /** 入力に近い語を優先し、同点時だけ乱数で選ぶ */

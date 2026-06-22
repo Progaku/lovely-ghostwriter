@@ -22,6 +22,12 @@ export type ProphecyInput = {
 
 /** テンプレート行へ差し込むために選ばれた象徴語や行動語 */
 export type SelectedLineTerms = {
+  /** 予言本文の{name}へ差し込むユーザー入力に依存しない呼び名 */
+  name?: string;
+  /** 予言本文の{theme}へ差し込むユーザー入力に依存しない象徴的な題 */
+  theme?: string;
+  /** 予言本文の{mood}へ差し込むユーザー入力に依存しない気配の語 */
+  mood?: string;
   /** 予言行の中心になる象徴語 */
   symbol?: string;
   /** 予言行の舞台や場面を示す場所語 */

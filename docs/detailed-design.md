@@ -174,6 +174,9 @@ export type TemplateLineMeta = {
 export type VocabularyPromptMeta = PromptMeta;
 
 export type SelectedLineTerms = {
+  name?: string;
+  theme?: string;
+  mood?: string;
   symbol?: string;
   place?: string;
   object?: string;
@@ -240,7 +243,9 @@ export type CopyStatus =
 4. `selectWeek1Candidate(input, random)` で第1週候補を選ぶ。
 5. 第2週から第4週は `selectNextCandidate(previousCandidate, lineKey, input, random)` で選ぶ。
 6. 各候補に対して `selectVocabulary(profile, input, random)` で差し込み語を選ぶ。
-7. `renderTemplateLine(candidate, selectedTerms, input)` で1行へ描画する。
+7. `renderTemplateLine(candidate, selectedTerms)` で1行へ描画する。
+   - 予言本文中の `{name}` / `{theme}` / `{mood}` はユーザー入力をそのまま使わず、アプリ側で用意した本文用語からランダムに選んだ値を使う。
+   - ユーザー入力の `name` / `theme` / `mood` は、候補選択、解釈軸、AI用プロンプトのユーザー入力欄では引き続き使用する。
 8. `buildInterpretationAxis(selectedWeeks, input)` を作る。
 9. `buildAiPrompt(input, weeks, interpretationAxis)` を作る。
 
@@ -291,6 +296,9 @@ function selectVocabulary(
   random: Random,
 ): SelectedLineTerms {
   return {
+    name: pickRandomTerm(prophecyPlaceholderTerms.names, random),
+    theme: pickRandomTerm(prophecyPlaceholderTerms.themes, random),
+    mood: pickRandomTerm(prophecyPlaceholderTerms.moods, random),
     symbol: pickByInputAffinity(profile.symbols, input, random),
     place: pickByInputAffinity(profile.places, input, random),
     object: pickByInputAffinity(profile.objects, input, random),
@@ -302,12 +310,11 @@ function selectVocabulary(
 function renderTemplateLine(
   candidate: TemplateLineCandidate,
   selectedTerms: SelectedLineTerms,
-  input: ProphecyInput,
 ): string {
   return candidate.text
-    .replaceAll("{name}", input.name.trim())
-    .replaceAll("{theme}", input.theme.trim())
-    .replaceAll("{mood}", input.mood.trim())
+    .replaceAll("{name}", selectedTerms.name)
+    .replaceAll("{theme}", selectedTerms.theme)
+    .replaceAll("{mood}", selectedTerms.mood)
     .replaceAll("{symbol}", selectedTerms.symbol ?? "")
     .replaceAll("{place}", selectedTerms.place ?? "")
     .replaceAll("{object}", selectedTerms.object ?? "")
