@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue 作成"
+  short_description: "本プロダクト開発向けの日本語 issue を設計書から作成する"
+  default_prompt: "このリポジトリの docs と AGENTS.md を根拠に、実装可能で検証観点つきの GitHub issue を日本語で作成してください。"

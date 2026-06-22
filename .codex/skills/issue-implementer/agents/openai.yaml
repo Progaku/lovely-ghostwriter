@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue 実装"
+  short_description: "指定issueを読み取り規約に沿って実装するスキル"
+  default_prompt: "$issue-implementer を使って、指定されたGitHub issueを読み取り、このリポジトリのコーディング規約に沿って実装してください。"
