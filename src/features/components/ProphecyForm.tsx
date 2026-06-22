@@ -97,7 +97,7 @@ export function ProphecyForm({
           value={birthDateValue}
           onChange={(event) => handleBirthDateChange(event.target.value)}
           error={errors.birthDate != null}
-          helperText={errors.birthDate ?? "未来日は入力できません"}
+          helperText={errors.birthDate ?? "未来日は選択できません"}
           slotProps={{ inputLabel: { shrink: true } }}
           required
           fullWidth

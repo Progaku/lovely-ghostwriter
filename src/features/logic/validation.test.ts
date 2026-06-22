@@ -68,7 +68,7 @@ describe("validateInput", () => {
     });
 
     expect(result.isValid).toBe(false);
-    expect(result.errors.birthDate).toBe("正しい日付を入力してください");
+    expect(result.errors.birthDate).toBe("未来日は選択できません");
   });
 
   it("不正な性別をエラーにする", () => {

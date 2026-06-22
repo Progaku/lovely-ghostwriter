@@ -89,7 +89,7 @@ function validateBirthDate(birthDate?: Date | null): string | undefined {
   }
 
   if (birthDate.getTime() >= getTodayInJst().getTime()) {
-    return "正しい日付を入力してください";
+    return "未来日は選択できません";
   }
 
   return undefined;
