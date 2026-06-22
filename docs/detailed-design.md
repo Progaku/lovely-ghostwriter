@@ -511,8 +511,7 @@ MUI Themeでは以下を設定する。
 | `selectNextCandidate` | `nextCandidates` 優先、参照切れ時フォールバック |
 | `renderTemplateLine` | 変数置換、改行除去、1行化 |
 | `generateProphecy` | 常に4週分、各週1行、週番号順 |
-| `buildInterpretationAxis` | 候補ID、profile、語彙、注意が反映される |
-| `buildAiPrompt` | ユーザー入力、4週分、解釈軸、出力条件、出力形式を含む |
+| `buildInterpretationAxis` | profile、語彙、注意が反映される |
 
 コンポーネントテスト:
 

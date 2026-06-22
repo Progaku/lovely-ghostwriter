@@ -385,24 +385,30 @@ function toProphecyWeek(selectedLine: SelectedLine): ProphecyWeek {
 
 /** 選択済み行をもとに4週全体の解釈軸を作る */
 export function buildInterpretationAxis(selectedLines: readonly SelectedLine[], input: ProphecyInput): string {
-  const weeklyAxes = selectedLines.map((selectedLine) =>
-    [
+  const weeklyAxes = selectedLines.map((selectedLine) => {
+    const attentions = [
+      ...new Set([
+        selectedLine.profile.promptMeta.caution,
+        selectedLine.lineMeta.caution,
+        selectedLine.candidate.candidateMeta.caution,
+      ]),
+    ].join('、');
+    return [
       `第${selectedLine.weekNumber}週は、${selectedLine.lineMeta.role}として読む`,
-      `候補ID ${selectedLine.candidate.candidateId}、profileId ${selectedLine.profile.profileId} を根拠にする`,
       `候補文は、${selectedLine.candidate.candidateMeta.reading}として扱う`,
       `詩中の語彙は、${buildVocabularyInterpretation(selectedLine.selectedTerms)}として扱う`,
       `助言では${selectedLine.profile.promptMeta.focus}、${selectedLine.lineMeta.promptFocus}、${selectedLine.candidate.candidateMeta.promptFocus}を中心にする`,
-      `注意点は${selectedLine.profile.promptMeta.caution}、${selectedLine.lineMeta.caution}、${selectedLine.candidate.candidateMeta.caution}に従う`,
+      `注意点は${attentions}に従う`,
       `行動は${buildActionFrame(selectedLine)}へ落とす`,
-    ].join("。"),
-  );
+    ].join("。")
+  });
   const monthlyAxis = [
     `全体として、${selectedLines.map((selectedLine) => selectedLine.lineMeta.axis).join("から")}`,
     `という流れとして読む`,
     `相談テーマ「${input.theme.trim()}」と今月の気分「${input.mood.trim()}」については、実際に選ばれた語彙と行候補だけを根拠に解釈する`,
   ].join("");
 
-  return [...weeklyAxes, monthlyAxis].join("\n");
+  return [...weeklyAxes, monthlyAxis].join("\n\n");
 }
 
 /** 任意の生成AIへ貼り付けるための日本語プロンプトを作る */

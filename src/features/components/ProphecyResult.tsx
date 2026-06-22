@@ -1,17 +1,22 @@
 import { Button, Divider, Typography } from "@mui/material";
-import type { ProphecyResult as ProphecyResultData } from "../types";
+import type { CopyStatus, ProphecyResult as ProphecyResultData } from "../types";
+import { AiPromptPanel } from "./AiPromptPanel";
 import { ProphecyWeekList } from "./ProphecyWeekList";
 
 /** 予言結果表示に渡す生成結果と操作 */
 export type ProphecyResultProps = {
   /** 生成済みの4週分の予言結果 */
   result: ProphecyResultData;
+  /** AI用プロンプトのコピー操作状態 */
+  copyStatus: CopyStatus;
+  /** AI用プロンプトのコピーボタンが押されたときの通知 */
+  onCopy: () => void;
   /** 再生成ボタンが押されたときの通知 */
   onRegenerate: () => void;
 };
 
 /** 生成後の予言紙面と再生成操作を表示する */
-export function ProphecyResult({ result, onRegenerate }: ProphecyResultProps) {
+export function ProphecyResult({ result, copyStatus, onCopy, onRegenerate }: ProphecyResultProps) {
   return (
     <section
       className="space-y-6 rounded-md border border-stone-300 bg-stone-50/80 p-5 shadow-inner sm:p-6"
@@ -29,6 +34,10 @@ export function ProphecyResult({ result, onRegenerate }: ProphecyResultProps) {
       <Divider />
 
       <ProphecyWeekList weeks={result.weeks} />
+
+      <Divider />
+
+      <AiPromptPanel aiPrompt={result.aiPrompt} copyStatus={copyStatus} onCopy={onCopy} />
 
       <div className="flex justify-end pt-2">
         <Button type="button" variant="outlined" size="large" onClick={onRegenerate}>
