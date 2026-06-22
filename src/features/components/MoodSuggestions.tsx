@@ -17,11 +17,11 @@ export function MoodSuggestions({
   onSelect,
 }: MoodSuggestionsProps) {
   return (
-    <div className="space-y-2" aria-labelledby="mood-suggestions-label">
+    <div className="min-w-0 space-y-2" aria-labelledby="mood-suggestions-label">
       <Typography id="mood-suggestions-label" component="p" variant="body2">
         気分候補
       </Typography>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-w-0 flex-wrap gap-2">
         {suggestions.map((suggestion) => {
           const isSelected = selectedMood === suggestion;
 
@@ -32,6 +32,7 @@ export function MoodSuggestions({
                 onClick={() => onSelect(suggestion)}
                 variant={isSelected ? "filled" : "outlined"}
                 color={isSelected ? "primary" : "default"}
+                className="max-w-full"
               />
             </Tooltip>
           );

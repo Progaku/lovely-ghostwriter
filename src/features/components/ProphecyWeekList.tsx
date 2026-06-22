@@ -12,14 +12,14 @@ export function ProphecyWeekList({ weeks }: ProphecyWeekListProps) {
   const orderedWeeks = [...weeks].sort((firstWeek, secondWeek) => firstWeek.weekNumber - secondWeek.weekNumber);
 
   return (
-    <ol className="space-y-5" aria-label="4週分の予言">
+    <ol className="min-w-0 space-y-4" aria-label="4週分の予言">
       {orderedWeeks.map((week) => (
-        <li key={week.weekNumber} className="space-y-3">
-          <article className="space-y-2">
+        <li key={week.weekNumber} className="min-w-0 space-y-3">
+          <article className="min-w-0 border-l-2 border-[#8a6f43] pl-4">
             <Typography
               component="p"
               variant="body1"
-              className="whitespace-pre-wrap break-words font-mono leading-8 text-stone-800"
+              className="whitespace-pre-wrap break-words font-mono leading-8 text-stone-800 [overflow-wrap:anywhere]"
             >
               {week.line}
             </Typography>

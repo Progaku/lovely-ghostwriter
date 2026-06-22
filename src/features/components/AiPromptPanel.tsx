@@ -16,7 +16,7 @@ export function AiPromptPanel({ aiPrompt, copyStatus, onCopy }: AiPromptPanelPro
   const hasCopyError = copyStatus.state === "error";
 
   return (
-    <section className="space-y-4" aria-labelledby="ai-prompt-heading">
+    <section className="min-w-0 space-y-4" aria-labelledby="ai-prompt-heading">
       <div className="space-y-1">
         <Typography id="ai-prompt-heading" component="h3" variant="h5">
           AI用プロンプト
@@ -39,6 +39,12 @@ export function AiPromptPanel({ aiPrompt, copyStatus, onCopy }: AiPromptPanelPro
         multiline
         minRows={8}
         maxRows={14}
+        sx={{
+          "& textarea": {
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
+          },
+        }}
         slotProps={{
           input: {
             readOnly: true,
@@ -46,8 +52,14 @@ export function AiPromptPanel({ aiPrompt, copyStatus, onCopy }: AiPromptPanelPro
         }}
       />
 
-      <div className="flex justify-end">
-        <Button type="button" variant="contained" size="large" onClick={onCopy}>
+      <div className="flex justify-stretch sm:justify-end">
+        <Button
+          type="button"
+          variant="contained"
+          size="large"
+          onClick={onCopy}
+          className="min-h-12 w-full whitespace-normal break-words sm:w-auto"
+        >
           AI用プロンプトをコピーする
         </Button>
       </div>

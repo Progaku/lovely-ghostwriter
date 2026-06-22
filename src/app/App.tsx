@@ -67,37 +67,56 @@ export function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <main className="min-h-screen bg-stone-900 px-4 py-10 text-stone-900">
-        <Paper component="section" elevation={8} className="mx-auto max-w-4xl space-y-8 p-6 sm:p-10">
-          <header className="space-y-2 text-center">
-            <Typography component="h1" variant="h3">
-              ラブリーゴーストライター
-            </Typography>
-            <Typography component="p" variant="body1">
-              一ヶ月の気配を四行詩に映します。
-            </Typography>
-          </header>
+      <main className="min-h-screen overflow-x-hidden bg-[#211d1a] bg-[linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.018)_1px,transparent_1px)] bg-[size:38px_38px] px-3 py-5 text-stone-900 sm:px-6 sm:py-8 lg:px-8 lg:py-12">
+        <Paper
+          component="section"
+          elevation={8}
+          className="mx-auto w-full max-w-[calc(100vw-1.5rem)] overflow-hidden border border-[#c4b890] bg-[#f4ead2] shadow-2xl sm:max-w-6xl"
+        >
+          <div className="min-w-0 space-y-6 p-5 sm:p-8 lg:p-10">
+            <header className="mx-auto min-w-0 max-w-3xl space-y-3 text-center">
+              <Typography component="h1" variant="h3" className="break-words [overflow-wrap:anywhere]">
+                <span className="block sm:inline">ラブリー</span>
+                <span className="block sm:inline">ゴーストライター</span>
+              </Typography>
+              <Typography component="p" variant="body1" className="text-stone-700">
+                一ヶ月の気配を四行詩に映します。
+              </Typography>
+            </header>
 
-          <Alert severity="info">
-            本アプリは非公式ファン作品です。娯楽用途として楽しみ、重要な判断には使用しないでください。
-          </Alert>
+            <Alert severity="info" className="mx-auto w-full max-w-3xl">
+              本アプリは非公式ファン作品です。娯楽用途として楽しみ、重要な判断には使用しないでください。
+            </Alert>
 
-          <ProphecyForm
-            value={input}
-            errors={validation.errors}
-            canGenerate={validation.isValid}
-            onChange={setInput}
-            onGenerate={handleGenerate}
-          />
+            <div
+              className={
+                result == null
+                  ? "mx-auto max-w-3xl"
+                  : "grid min-w-0 gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start"
+              }
+            >
+              <div className="min-w-0">
+                <ProphecyForm
+                  value={input}
+                  errors={validation.errors}
+                  canGenerate={validation.isValid}
+                  onChange={setInput}
+                  onGenerate={handleGenerate}
+                />
+              </div>
 
-          {result != null ? (
-            <ProphecyResult
-              result={result}
-              copyStatus={copyStatus}
-              onCopy={handleCopyAiPrompt}
-              onRegenerate={handleRegenerate}
-            />
-          ) : null}
+              {result != null ? (
+                <div className="min-w-0">
+                  <ProphecyResult
+                    result={result}
+                    copyStatus={copyStatus}
+                    onCopy={handleCopyAiPrompt}
+                    onRegenerate={handleRegenerate}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
         </Paper>
 
         <Snackbar
